@@ -1,0 +1,7 @@
+*.pdf
+*.pptx
+*.xlsx
+.idea/
+__pycache__/
+C13_isotope_tracing/
+venv/

@@ -17,12 +17,14 @@ Metabolite_4 = C3H4O3     # PYRUVATE
 # Parameters for experiments #
 ##############################
 tracer = 13C
+LC_column = HILIC
 mode = -1              # 1 = positive mode, -1 = negative mode
 
 #####################################
 # Parameters for a spectral library #
 #####################################
-library = /hpcf/authorized_apps/proteomics_apps/jumpm/python/library/MoNA/MoNA-export-LC-MS-MS_Negative_Mode.db
+#library = /hpcf/authorized_apps/proteomics_apps/jumpm/python/library/MoNA/MoNA-export-LC-MS-MS_Negative_Mode.db
+library = stjude_library_hilicn.db
 library_mass_tolerance = 10      # mass tolerance for library search (ppm)
 
 ####################################

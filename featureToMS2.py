@@ -108,9 +108,7 @@ def simplifyMs2(spec):
 
 
 def ms2ForFeatures(df, mzxmlFile, paramFile):
-    print("  Identification of MS2 spectra for the features")
-    print("  ==============================================")
-    df["MS2"] = ""
+    print("  Processing MS2 spectra for each feature in %s" % os.path.basename(mzxmlFile))
 
     ######################################
     # Load parameters and initialization #
@@ -124,8 +122,6 @@ def ms2ForFeatures(df, mzxmlFile, paramFile):
     # Consolidation of MS2 spectra for each feature #
     #################################################
     reader = mzxml.MzXML(mzxmlFile)
-    print("  %s is being processed" % os.path.basename(mzxmlFile))
-    print("  Looking for MS2 scan(s) responsible for each feature")
     ms2Array = []
     for i in range(df.shape[0]):
         minScan, maxScan = int(df.iloc[i]["minMS1"]), int(df.iloc[i]["maxMS1"])
@@ -153,9 +149,8 @@ def ms2ForFeatures(df, mzxmlFile, paramFile):
                     ms2Dict["intensity"] = np.append(ms2Dict["intensity"], spec["intensity array"])
         ms2Array.append(ms2Dict)
 
-    print("  Merging MS2 spectra for each feature within a run (it may take a while)")
+    df["MS2"] = ""
     for i in range(len(ms2Array)):
         ms2Array[i] = intraConsolidation(ms2Array[i], tolIntraMS2Consolidation)
     df["MS2"] = ms2Array
-
     return df

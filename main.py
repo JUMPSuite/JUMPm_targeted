@@ -1,4 +1,5 @@
 from featureDetection import detectFeatures
+from featureToMS2 import ms2ForFeatures
 
 # Input processing
 # Parameters are
@@ -17,10 +18,11 @@ mzxmlFiles = [r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\U
 # The method is almost identical to one for Jump -m unlabeled pipeline
 # Here, the feature detection is only performed for the peaks around given m/z values
 # (Every m/z value of MS1 peaks is checked against the given m/z list)
-features = {}
+featureDict = {}
 for mzxmlFile in mzxmlFiles:
     features = detectFeatures(mzxmlFile, paramFile)
-    print()
+    features = ms2ForFeatures(features, mzxmlFile, paramFile)   # MS2 spectrum for each feature is added
+    featureDict[mzxmlFile] = features
 print()
 
 

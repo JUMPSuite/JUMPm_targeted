@@ -249,6 +249,14 @@ def checkPeakMz(inputMz, dict, tol):
     return -1
 
 
+def annotateFeatures(features, dictMetabolites, checkTol):
+    for i in range(len(features["mz"])):
+        mz = features["mz"][i]
+        metabolite = checkPeakMz(mz, dictMetabolites, checkTol)
+        features["metabolite"][i] = metabolite
+    return features
+
+
 def detectFeatures(inputFile, paramFile):
     ##############
     # Parameters #
@@ -487,35 +495,26 @@ def detectFeatures(inputFile, paramFile):
     for i in range(len(f)):
         # 1. mz: mean m/z of a feauture = weighted average of m/z and intensity
         mz = np.sum(np.multiply(f[i]["mz"], f[i]["intensity"])) / np.sum(f[i]["intensity"])
-
         # 2. intensity: intensity of a feature (maximum intensity among the peaks consist of the feature)
         intensity = max(f[i]["intensity"])
-
         # 3. z: charge of the feature, set to 1 now, but modified later
         z = 1
-        isotope = 0  # Will be used later
-
         # 4. RT: RT of the representative peak (i.e. strongest peak) of a feature
         ind = np.argmax(f[i]["intensity"])
         rt = f[i]["rt"][ind]
-
         # 5. minRT and maxRT
         minRt = min(f[i]["rt"])
         maxRt = max(f[i]["rt"])
-
         # Conversion of RT to the unit of second
         if rt.unit_info == "minute":
             rt = rt * 60  # Convert to the unit of second
             minRt = minRt * 60
             maxRt = maxRt * 60
-
         # 6. MS1 scan number of the representative peak of a feature
         ms1 = f[i]["num"][ind]
-
         # 7. minMS1 and maxMS1
         minMs1 = min(list(map(int, f[i]["num"])))
         maxMs1 = max(list(map(int, f[i]["num"])))
-
         # 8. SNratio (signal-to-noise ratio of the feature)
         if ms1 in noise:
             noiseLevel = noise[ms1]
@@ -523,18 +522,18 @@ def detectFeatures(inputFile, paramFile):
             noiseLevel = 500
         snRatio = intensity / noiseLevel
         featureIntensityThreshold = noiseLevel * float(params["signal_noise_ratio"])
-
+        metabolite = ""
+        # 9. Percentage of true feature
         if intensity >= featureIntensityThreshold:
-            # 9. Percentage of true feature
             pctTF = (maxRt - minRt) / (gMaxRt - gMinRt) * 100
             # Organize features in a structured numpy array form
             if n == 0:
-                features = np.array([(mz, intensity, z, rt, minRt, maxRt, ms1, minMs1, maxMs1, snRatio, pctTF, isotope)],
-                                    dtype="f8, f8, f8, f8, f8, f8, f8, f8, f8, f8, f8, f8")
+                features = np.array([(mz, intensity, z, rt, minRt, maxRt, ms1, minMs1, maxMs1, snRatio, pctTF, metabolite)],
+                                    dtype="f8, f8, f8, f8, f8, f8, f8, f8, f8, f8, f8, O")
                 n += 1
             else:
                 features = np.append(features,
-                                     np.array([(mz, intensity, z, rt, minRt, maxRt, ms1, minMs1, maxMs1, snRatio, pctTF, isotope)],
+                                     np.array([(mz, intensity, z, rt, minRt, maxRt, ms1, minMs1, maxMs1, snRatio, pctTF, metabolite)],
                                               dtype=features.dtype))
             for j in range(len(f[i]["num"])):
                 num = f[i]["num"][j]
@@ -547,18 +546,24 @@ def detectFeatures(inputFile, paramFile):
         else:
             continue
 
-    features.dtype.names = ("mz", "intensity", "z", "RT", "minRT", "maxRT", "MS1", "minMS1", "maxMS1", "SNratio", "PercentageTF", "isotope")
+    features.dtype.names = ("mz", "intensity", "z", "RT", "minRT", "maxRT", "MS1", "minMS1", "maxMS1", "SNratio", "PercentageTF", "metabolite")
 
     ##########################
     # Decharging of features #
     ##########################
     # features = dechargeFeatures(features)
 
+    #####################
+    # Annotate features #
+    #####################
+    features = annotateFeatures(features, dictMetabolites, checkTol)
+
     ############################################
     # Convert the features to pandas dataframe #
     # Write features to a file                 #
     ############################################
     df = pd.DataFrame(features)
-    df = df.drop(columns = ["isotope"])    # "isotope" column was internally used, and no need to be transferred
-
+    df = df.sort_values(['metabolite', 'RT'],  ignore_index=True)
     return df  # Pandas DataFrame
+
+

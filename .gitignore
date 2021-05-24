@@ -7,3 +7,7 @@ C13_isotope_tracing/
 venv/
 iso_distr_13C_Tracing_v1.2.params
 stjude_library_hilicn.db
+*.png
+*.pickle
+*.txt
+.ipynb_checkpoints/

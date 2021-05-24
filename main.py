@@ -9,14 +9,15 @@ from librarySearch import searchLibrary
 # 2. Feature detection-related parameters
 inputFile = "isotope_distribution.xlsx"
 paramFile = "jumpm_targeted.params"
-mzxmlFiles = [r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\hilic_neg\neg_ctrl3.mzXML",
-              r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\hilic_neg\neg_HK1_4.mzXML",
-              r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\hilic_neg\neg_QC3.mzXML"]
+# mzxmlFiles = [r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\hilic_neg\neg_ctrl3.mzXML",
+#               r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\hilic_neg\neg_HK1_4.mzXML",
+#               r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\hilic_neg\neg_QC3.mzXML"]
+mzxmlFiles = [r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\7_tracer.mzXML"]
+
 
 # Input dataframe (from Surendhar's program)
 # What is going to be a "key"? metabolite name? HMDB ID?
 df = pd.read_excel(inputFile)
-print()
 
 # Feature detection for the given metabolites
 # MS2 processing for the features

@@ -31,9 +31,9 @@ library_mass_tolerance = 10      # mass tolerance for library search (ppm)
 # Parameters for feature detection #
 ####################################
 data_acquisition_mode = 1              # 1 = centroid, 2 = profile for full scan and centroid for MS/MS scan 
-signal_noise_ratio = 10                # fold of the minimum signal noise ratio
+signal_noise_ratio = 2                 # fold of the minimum signal noise ratio
 min_peak_intensity = 10000             # threshold of a peak intensity
-skipping_scans = 5                     # number of skipping scans during 3D formation 
+skipping_scans = 3                     # number of skipping scans during 3D formation 
 mz_tolerance_metabolite_feature = 50   # m/z tolerance for defining features for the given metabolites
 mz_tolerance_peak_matching = 3         # m/z tolerance for peak matching/merging during 3D formation
 

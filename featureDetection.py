@@ -17,6 +17,10 @@ def detectPeaks(spec, params):
     # m/z and intensity arrays from a spectrum object
     mzArray = spec["m/z array"]
     intensityArray = spec["intensity array"]
+    if params["minMz"] is not None and params["maxMz"] is not None:
+        idx = (mzArray > params["minMz"]) & (mzArray < params["maxMz"])
+        mzArray = mzArray[idx]
+        intensityArray = intensityArray[idx]
     nPeaks = len(mzArray)
     newMzArray = np.array([])
     newIntensityArray = np.array([])
@@ -240,37 +244,114 @@ def findRtOverlap(min1, max1, min2, max2):
     return overlap
 
 
-def checkPeakMz(inputMz, dict, tol):
-    for k, mz in dict.items():
-        uL = mz + mz * tol / 1e6
-        lL = mz - mz * tol / 1e6
-        if lL <= inputMz <= uL:
-            return k
+def checkPeakMz(inputMz, df, tol):
+    uids = df["idhmdb"].unique()
+    for uid in uids:
+        mzs = [float(mz.split(";")[0]) for mz in df[df["idhmdb"] == uid]["isotope_M/Z"]]
+        for mz in mzs:
+            uL = mz + mz * tol / 1e6
+            lL = mz - mz * tol / 1e6
+            if lL <= inputMz <= uL:
+                return uid
     return -1
 
+    # for k, mz in dict.items():
+    #     uL = mz + mz * tol / 1e6
+    #     lL = mz - mz * tol / 1e6
+    #     if lL <= inputMz <= uL:
+    #         return k
+    # return -1
 
-def annotateFeatures(features, dictMetabolites, checkTol):
+
+def annotateFeatures(features, df, checkTol):
+    # "features" is a dataframe where the index is renewed
     for i in range(len(features["mz"])):
-        mz = features["mz"][i]
-        metabolite = checkPeakMz(mz, dictMetabolites, checkTol)
-        features["metabolite"][i] = metabolite
+        mz = features.loc[i]["mz"]
+        metabolite = checkPeakMz(mz, df, checkTol)
+        features.loc[i, "metabolite"] = metabolite
     return features
 
 
-def detectFeatures(inputFile, paramFile):
+def filterFeatures(f, df, tol):
+    tol = 50
+    f = f.sort_values(["metabolite", "mz"], ignore_index=True)  # Sort by HMDB ID and m/z value
+    uids = sorted(df["idhmdb"].unique())
+    fArray = []
+    for uid in uids:
+        df1 = f[f["metabolite"] == uid]  # DataFrame for the specific "uid
+        idxArray = []
+        used = []
+        for i in range(df1.shape[0]):
+            if i in used:
+                continue
+            idx = []
+            for j in range(i + 1, df1.shape[0]):
+                if j in used:
+                    continue
+                res = findRtOverlap(df1.iloc[i]["minRT"], df1.iloc[i]["maxRT"], df1.iloc[j]["minRT"],
+                                    df1.iloc[j]["maxRT"])
+                if 0 < res < 600:  # Too much RT-overlap (> 10 minutes) is not meaningful
+                    idx.append(j)
+                    used.append(j)
+            if len(idx) > 0:
+                idx.append(i)
+                idxArray.append(idx)
+                used.append(i)
+
+        # Arrange the feature representing isotopologues
+        mzs = [float(mz.split(";")[0]) for mz in df[df["idhmdb"] == uid]["isotope_M/Z"]]
+        for i in range(len(idxArray)):
+            mzArray, intensityArray, rtArray = [], [], []
+            df2 = df1.iloc[idxArray[i]].sort_values("mz")
+            for j in range(len(mzs)):
+                mz = mzs[j]
+                row = df2["mz"].astype(int) == int(mz)
+                if j == 0 and sum(
+                        row) == 0:  # If there's no feature corresponding to "monoisotopic" peak, then break (move to the next)
+                    break
+                if sum(row) > 0:
+                    mzArray.append(df2[row]["mz"].values[0])
+                    intensityArray.append(df2[row]["intensity"].values[0])
+                    if j == 0:
+                        rt = df2[row]["RT"].values[0]
+                        minRt = df2[row]["minRT"].values[0]
+                        maxRt = df2[row]["maxRT"].values[0]
+                        minMs1 = df2[row]["minMS1"].values[0]
+                        maxMs1 = df2[row]["maxMS1"].values[0]
+                else:
+                    mzArray.append(0)
+                    intensityArray.append(0)
+            if len(mzArray) > 0:
+                newF = {"mz": mzArray, "intensity": intensityArray, "z": 1,
+                        "RT": rt, "minRT": minRt, "maxRT": maxRt,
+                        "minMS1": minMs1, "maxMS1": maxMs1, "metabolite": uid}
+                fArray.append(newF)
+    return pd.DataFrame(fArray)
+
+
+def detectFeatures(df, inputFile, paramFile):
     ##############
     # Parameters #
     ##############
     params = utils.getParams(paramFile)
-    # Parameters for metabolites
-    dictMetabolites = {}
     proton = 1.007276466812
     mode = float(params["mode"])
-    for k, v in params.items():
-        if k.startswith("Metabolite"):
-            m = mass.calculate_mass(formula=v)  # Neutral mass
-            mz = m + proton * mode  # m/z assuming z = 1
-            dictMetabolites[k] = mz
+
+    # Parameters for metabolites
+    mzs = [float(mz.split(";")[0]) for mz in df.groupby("idhmdb").min()["isotope_M/Z"]]
+    uids = df.groupby("idhmdb", as_index=False).min()["idhmdb"]
+    minMz = min(mzs) - 2    # For safety, +/- 2 m/z is added as a margin
+    maxMz = max(mzs) + 2
+    params["minMz"] = minMz
+    params["maxMz"] = maxMz
+
+    # dictMetabolites = {}
+    # for k, v in params.items():
+    #     if k.startswith("Metabolite"):
+    #         m = mass.calculate_mass(formula=v)  # Neutral mass
+    #         mz = m + proton * mode  # m/z assuming z = 1
+    #         dictMetabolites[k] = mz
+
     # Parameters for feature detection
     gap = int(params["skipping_scans"])
     scanWindow = gap + 1
@@ -334,11 +415,12 @@ def detectFeatures(inputFile, paramFile):
         valids = np.array([])
         for j in range(pCount):
             cm = p["m/z array"][j]
-            # Check whether "cm" (i.e., m/z of j-th peak) is worth considering or not
-            metabolite = checkPeakMz(cm, dictMetabolites, checkTol)
-            if metabolite == -1:
+            if cm < minMz or cm > maxMz:
                 continue
-
+            # # Check whether "cm" (i.e., m/z of j-th peak) is close to m/z of given metbolites and their isotopologues
+            # metabolite = checkPeakMz(cm, df, checkTol)
+            # if metabolite == -1:
+            #     continue
             match = 0
             nTry = 0
             # Backward search
@@ -483,9 +565,9 @@ def detectFeatures(inputFile, paramFile):
             if max(f[i]["rt"]) > gMaxRt:
                 gMaxRt = max(f[i]["rt"])
 
-    if gMaxRt.unit_info == "minute":
-        gMaxRt = gMaxRt * 60
-        gMinRt = gMinRt * 60
+    # if gMaxRt.unit_info == "minute":
+    #     gMaxRt = gMaxRt * 60
+    #     gMinRt = gMinRt * 60
 
     ###################################
     # Organization of output features #
@@ -505,11 +587,11 @@ def detectFeatures(inputFile, paramFile):
         # 5. minRT and maxRT
         minRt = min(f[i]["rt"])
         maxRt = max(f[i]["rt"])
-        # Conversion of RT to the unit of second
-        if rt.unit_info == "minute":
-            rt = rt * 60  # Convert to the unit of second
-            minRt = minRt * 60
-            maxRt = maxRt * 60
+        # # Conversion of RT to the unit of second
+        # if rt.unit_info == "minute":
+        #     rt = rt * 60  # Convert to the unit of second
+        #     minRt = minRt * 60
+        #     maxRt = maxRt * 60
         # 6. MS1 scan number of the representative peak of a feature
         ms1 = f[i]["num"][ind]
         # 7. minMS1 and maxMS1
@@ -532,9 +614,8 @@ def detectFeatures(inputFile, paramFile):
                                     dtype="f8, f8, f8, f8, f8, f8, f8, f8, f8, f8, f8, O")
                 n += 1
             else:
-                features = np.append(features,
-                                     np.array([(mz, intensity, z, rt, minRt, maxRt, ms1, minMs1, maxMs1, snRatio, pctTF, metabolite)],
-                                              dtype=features.dtype))
+                features = np.append(features, np.array([(mz, intensity, z, rt, minRt, maxRt, ms1, minMs1, maxMs1, snRatio, pctTF, metabolite)],
+                                                        dtype=features.dtype))
             for j in range(len(f[i]["num"])):
                 num = f[i]["num"][j]
                 if num not in ms1ToFeatures:
@@ -556,14 +637,19 @@ def detectFeatures(inputFile, paramFile):
     #####################
     # Annotate features #
     #####################
-    features = annotateFeatures(features, dictMetabolites, checkTol)
+    features = pd.DataFrame(features)   # Change to a pandas dataframe
+    features = annotateFeatures(features, df, checkTol)
+
+    #######################################
+    # Filter features for each metabolite #
+    #######################################
+    features = filterFeatures(features, df, checkTol)
 
     ############################################
     # Convert the features to pandas dataframe #
     # Write features to a file                 #
     ############################################
-    df = pd.DataFrame(features)
-    df = df.sort_values(['metabolite', 'RT'],  ignore_index=True)
-    return df  # Pandas DataFrame
+    features = features.sort_values(['metabolite', 'RT'],  ignore_index=True)
+    return features
 
 

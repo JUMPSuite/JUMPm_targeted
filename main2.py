@@ -218,6 +218,11 @@ def correctMz(input, refMz):
     rLoess = loess()
     rPredict = ro.r("predict")
     df = input.copy()
+
+    # Pre-filtering of MS1 peaks based on an intensity threshold
+    intensityThreshold = 10000
+    df = df[df["intensity array"] > 10000]
+
     # Estimate the m/z-shifts around the "refMz" by investigating the peaks around "refMz" +/- 50 ppm
     lL = refMz - refMz * 50 / 1e6
     uL = refMz + refMz * 50 / 1e6

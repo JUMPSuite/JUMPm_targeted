@@ -11,3 +11,4 @@ stjude_library_hilicn.db
 *.pickle
 *.txt
 .ipynb_checkpoints/
+*.docx

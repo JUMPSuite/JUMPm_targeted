@@ -151,7 +151,7 @@ def searchNeighbors(currInd, minInd, maxInd, specArray, mz, params, direction):
         startInd = currInd + 1
         endInd = maxInd + 1
         increment = 1
-    tol = float(params["mass_tolerance_peak_matching"])
+    tol = float(params["mz_tolerance_peak_matching"])
     scanWindow = int(params["skipping_scans"]) + 1
     match, nTry, ind = 0, 0, None
     for i in range(startInd, endInd, increment):
@@ -191,9 +191,13 @@ def reducePeaks(currInd, minInd, maxInd, cache, noise, params):
 
     # Noise estimation
     if len(valid) > 0:
-        noiseLevel = np.percentile(np.setdiff1d(currScan["m/z array"], currScan["m/z array"][valid]), 25)
+        noisePeaks = np.setdiff1d(currScan["intensity array"], currScan["intensity array"][valid])
+        if len(noisePeaks) > 0:
+            noiseLevel = np.percentile(noisePeaks, 25)
+        else:
+            noiseLevel = 1  # Nominal noise level
     else:
-        noiseLevel = 500  # Hard-coded noise level = 500
+        noiseLevel = 500  # Hard-coded default noise level = 500
     noise[currScan["num"]] = noiseLevel
 
     # Peak reduction
@@ -226,7 +230,7 @@ def extendFeature(featureIndexArray, features, cache, currInd, minInd, peakIndex
             features[repInd].index.extend(features[f].index)
 
             # Revise the array of MS1 spectra (i.e., cache array)
-            for s in features[f]["index"]:
+            for s in features[f].index:
                 for t in range(len(cache)):
                     if cache[t]["index"] == s:
                         for u in range(len(cache[t]["featureIndex"])):
@@ -280,7 +284,7 @@ def mergePeaks(currInd, minInd, cache, fArray, params):
     #   cache = temporary array of MS1 scans
     #   fArray = array of features
     #   params = dictionary of parameters
-    matchTol = float(params["mass_tolerance_peak_matching"])
+    matchTol = float(params["mz_tolerance_peak_matching"])
     currScan = cache[currInd - minInd]  # Current MS1 scan having the "reduced" peaks
     nPeaks = len(currScan["m/z array"])
     for i in range(nPeaks):

@@ -5,12 +5,12 @@ Metabolite_1 = C4H7NO4    # ASPARTATE
 Metabolite_2 = C3H6O3     # LACTATE
 Metabolite_3 = C5H6O5     # OXOGLUTARATE
 Metabolite_4 = C3H4O3     # PYRUVATE
-#Metabolite_5 = C4H4O4     # FUMARATE
-#Metabolite_6 = C6H8O7     # CITRATE
-#Metabolite_7 = C5H9NO4    # GLUTAMATE
-#Metabolite_8 = C4H6O4     # SUCCINATE
-#Metabolite_9 = C6H12O6    # D-(+)-Glucose
-#Metabolite_10 = C3H5O6P   # PHOSPHOENOLPYRUVATE
+Metabolite_5 = C4H4O4     # FUMARATE
+Metabolite_6 = C6H8O7     # CITRATE
+Metabolite_7 = C5H9NO4    # GLUTAMATE
+Metabolite_8 = C4H6O4     # SUCCINATE
+Metabolite_9 = C6H12O6    # D-(+)-Glucose
+Metabolite_10 = C3H5O6P   # PHOSPHOENOLPYRUVATE
 #Metabolite_11 = C6H13O9P  # GLUCOSE 6-PHOSPHAT
 
 ##############################
@@ -30,6 +30,7 @@ library_mass_tolerance = 10      # mass tolerance for library search (ppm)
 ####################################
 # Parameters for feature detection #
 ####################################
+mass_shift = -10                       # m/z-shift in the unit of ppm
 data_acquisition_mode = 1              # 1 = centroid, 2 = profile for full scan and centroid for MS/MS scan 
 signal_noise_ratio = 2                 # fold of the minimum signal noise ratio
 min_peak_intensity = 10000             # threshold of a peak intensity

@@ -97,18 +97,16 @@ def organizeFeatures(f, noise, params):
     return res
 
 
-def detectFeatures(inputFile, paramFile):
-    print("  Feature detection")
-    now = datetime.now()
-    nowString = now.strftime("%Y/%m/%d %H:%M:%S")
-    print("  " + nowString)
-    reader = mzxml.read(inputFile)
+def detectFeatures(mzxmlFile, paramFile):
+    startTime = datetime.now()
+    print("  Feature detection of {}".format(os.path.basename(mzxmlFile)))
 
     # Parameters and initialization
     params = getParams(paramFile)
     gap = int(params["skipping_scans"])
 
     # Obtain the array of MS1 spectra
+    reader = mzxml.read(mzxmlFile)
     ms1 = getMs1(reader, params)
     nMs1 = len(ms1)
 
@@ -171,13 +169,16 @@ def detectFeatures(inputFile, paramFile):
     #######################
     f = organizeFeatures(f, noise, params)  # Output format of features (using pandas DataFrame)
 
+    elapsed = (datetime.now() - startTime).total_seconds()
+    print("  Took {} seconds".format(int(elapsed)))
+
     return f
 
 
 if __name__ == "__main__":
     # Initialization
-    paramFile = r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Dev\OOP\Dataset\jumpm_positive.params"
-    inputFile = r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Dev\OOP\Dataset\IROA_c18_target1.mzXML"
+    paramFile = "jumpm_targeted.params"
+    inputFile = r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\7_tracer.mzXML"
     features = detectFeatures(inputFile, paramFile)
     print()
 

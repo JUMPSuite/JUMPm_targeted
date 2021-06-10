@@ -1,4 +1,5 @@
 import re, sys, os, pickle, numpy as np, pandas as pd
+from pyteomics import mass
 
 
 def getParams(paramFile):
@@ -35,15 +36,44 @@ def getMs1(reader, params):
     except:
         lastScan = 1000000
     ms1 = []
-    ind = 0
+    n = 0
+
+    # When targeted metabolites are given, minimum and maximum m/z to be considered are set
+    # Note that the charge state is always assumed to be 1 (i.e., z = 1)
+    proton = 1.007276466812
+    isTargeted = 0
+    minMz, maxMz = 1e4, 0
+    for k, v in params.items():
+        if k.startswith("Metabolite"):
+            isTargeted = 1
+            mz = mass.calculate_mass(formula=v) + proton    # Assume "positive" mode
+            if mz < minMz:
+                minMz = mz
+            if mz > maxMz:
+                maxMz = mz
+
+    # To find isotopologues, minMz and maxMz should be a bit expanded
+    minMz -= 5
+    maxMz += 10
+
     with reader:
         for spec in reader:
             msLevel = spec["msLevel"]  # int type
             scanNum = spec["num"]  # str type
             if msLevel == 1 and firstScan <= int(scanNum) <= lastScan:
-                spec["scanIndex"] = ind
+                spec["scanIndex"] = n
+
+                # Reduce MS1 peaks when targeted
+                if isTargeted == 1:
+                    ind = (spec["m/z array"] >= minMz) & (spec["m/z array"] <= maxMz)
+                    spec["m/z array"] = spec["m/z array"][ind]
+                    spec["intensity array"] = spec["intensity array"][ind]
+
+                # # Mass (m/z) shift according to the given parameter (unit of ppm)
+                # if params["mass_shift"] is not None:
+                #     spec["m/z array"] = spec["m/z array"] / (1 + float(params["mass_shift"]) / 1e6)
                 ms1.append(spec)
-                ind += 1
+                n += 1
             elif int(scanNum) > lastScan:
                 break
     return ms1

@@ -79,10 +79,69 @@ def getMs1(reader, params):
     return ms1
 
 
-def readFeatures(featureFile):
-    with open(featureFile, 'r') as file:
-        features = file.readlines()
-    return features
+def calcMS2Similarity(featSpec, libSpec):
+    # Calculation of MS2 similarity between a feature and a library compound
+    # Reference: Clustering millions of tandem mass spectra, J Proteome Res. 2008; 7: 113-22
+
+    # Input arguments
+    # featSpec (dictionary): MS2 spectrum of a feature (key = "mz", "intensity")
+    # libSpec (dictionary): MS2 spectrum of a library compound (key = "mz", "intensity", "index" (ignorable))
+    nPeaks = 30 # Default = 30 according to the above reference
+    k = min(nPeaks, min(len(featSpec["mz"]), len(libSpec["mz"])))
+
+    # Keep $k strongest peaks in both spectra
+    # featDict[mz] = intensity
+    # libDict[mz] = intensity
+    featDict, libDict = {}, {}
+    ind = np.argsort([-i for i in featSpec["intensity"]])
+    for i in ind[0:k]:
+        featDict[featSpec["mz"][i]] = featSpec["intensity"][i]
+    ind = np.argsort([-i for i in libSpec["intensity"]])
+    for i in ind[0:k]:
+        libDict[libSpec["mz"][i]] = libSpec["intensity"][i]
+
+    # Join two sets of m/z values and make a new set of unique m/z values
+    # Duplicate masses are removed as follows
+    # - We consider two peaks to have a similar mass if they are within 0.5 Da from each other)
+    # - For those two peaks having similar mass, the lower one will be the unique one
+    #   (e.g. One peak with m/z = 100 and the other peak with m/z = 100.4 -> they will be merged to m/z = 100)
+    mzArray = list(featDict.keys()) + list(libDict.keys())
+    mzArray = sorted(mzArray)
+    mzDict = {}
+    val = 0
+    for mz in mzArray:
+        if abs(mz - val) <= 0.5:
+            mzDict[mz] = val
+        else:
+            mzDict[mz] = mz
+            val = mz
+
+    # Reduction of spectrum to a vector by assigning to each intensity to the unique m/z bins
+    # And then, calculate the similarity; normalized dot-product
+    s = {}
+    for key, val in mzDict.items():
+        s[val] = {}
+        s[val]["feat"] = 0
+        s[val]["lib"] = 0
+
+    for key, val in mzDict.items():
+        if key in featDict:
+            s[val]["feat"] += np.sqrt(featDict[key])
+        if key in libDict:
+            s[val]["lib"] += np.sqrt(libDict[key])
+
+    num, den1, den2 = 0, 0, 0    # numerator, denominator1, denominator2
+    for mz in s.keys():
+        num += s[mz]["feat"] * s[mz]["lib"]
+        den1 += s[mz]["feat"] ** 2
+        den2 += s[mz]["lib"] ** 2
+
+    if den1 * den2 == 0:
+        normDotProduct = 0
+    else:
+        normDotProduct = num / np.sqrt(den1 * den2)
+
+    return normDotProduct
 
 
 class progressBar:

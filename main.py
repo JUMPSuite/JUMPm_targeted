@@ -9,21 +9,42 @@ from isotopologues import *
 def formatOutput(res, isoDf):
     intensityDf = pd.DataFrame()
     pctDf = pd.DataFrame()
+    n = res.shape[0]
+    ms1Array = np.zeros(n)
+    rtArray = np.zeros(n)
+    rtShiftArray = np.zeros(n)
+    scoreArray = np.zeros(n)
+
     for key, df in isoDf.items():
-        intensityArray = np.zeros(res.shape[0])
-        pctArray = np.zeros(res.shape[0])
+        # Explode columns of the dataframe
+        df = df.set_index(["id"]).apply(pd.Series.explode).reset_index()
 
-        for uid in df["id"].unique():
-            rows = np.where(res["idhmdb"] == uid)
-            intensityArray[rows] = list(df[df["id"] == uid]["correctedIntensity"])
-            pctArray[rows] = list(df[df["id"] == uid]["labelingPct"])
+        # Add the corrected intensity and labeling percentage to the dataframes
+        intensityDf[key.split(".")[0] + "_intensity"] = df["correctedIntensity"]
+        pctDf[key.split(".")[0] + "_labelingPct"] = df["labelingPct"]
 
-        intensityDf[key + "_intensity"] = intensityArray
-        pctDf[key + "_labelingPct"] = pctArray
+        # Add other information to the corresponding arrays
+        if np.all(ms1Array == 0):
+            ms1Array = np.array(df["ms1"])
+            rtArray = np.array(df["rt"])
+            rtShiftArray = np.array(df["rtShift"])
+            scoreArray = np.array(df["ms2Score"])
+        else:
+            for i in range(n):
+                ms1Array[i] = str(ms1Array[i]) + ";" + str(df.loc[i]["ms1"])
+                rtArray[i] = str(rtArray[i]) + ";" + str(df.loc[i]["rt"])
+                rtShiftArray[i] = str(rtShiftArray[i]) + ";" + str(df.loc[i]["rtShift"])
+                scoreArray[i] = str(scoreArray[i]) + ";" + str(df.loc[i]["ms2Score"])
 
+    res["MS1"] = ms1Array
+    res["RT"] = rtArray
+    res["RTshift"] = rtShiftArray
+    res["MS2score"] = scoreArray
     res = pd.concat([res, intensityDf], axis=1)
     res = pd.concat([res, pctDf], axis=1)
+
     return res
+
 
 
 if __name__ == "__main__":
@@ -37,13 +58,13 @@ if __name__ == "__main__":
     # 2. Feature detection-related parameters
     inputFile = "isotope_distribution.xlsx"
     paramFile = "jumpm_targeted.params"
-    # mzxmlFiles = [r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\6_nolable.mzXML",
-    #               r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\7_tracer.mzXML",
-    #               r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\8_tracer.mzXML",
-    #               r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\9_tracer.mzXML"]
-    mzxmlFiles = [
-        r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\7_tracer.mzXML",
-        r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\8_tracer.mzXML"]
+    mzxmlFiles = [r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\6_nolable.mzXML",
+                  r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\7_tracer.mzXML",
+                  r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\8_tracer.mzXML",
+                  r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\9_tracer.mzXML"]
+    # mzxmlFiles = [
+    #     r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\7_tracer.mzXML",
+    #     r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\8_tracer.mzXML"]
 
     # Input dataframe (from Surendhar's program)
     # What is going to be a "key"? metabolite name? HMDB ID?
@@ -61,7 +82,8 @@ if __name__ == "__main__":
 
     # Format the output dataframe
     res = formatOutput(res, isoDf)
-    print()
+    res.to_csv("tracer_result.txt", sep="\t", index=False)
+
 
 # Feature detection for the given metabolites
 # MS2 processing for the features

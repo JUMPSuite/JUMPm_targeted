@@ -1,6 +1,7 @@
 import numpy as np, pandas as pd
+import sys, re, os, sqlite3
 from pyteomics import mzxml
-
+from utils import *
 
 def findIsotopologuePeak(features, spec, givenMz, tol1, tol2):
     lL = givenMz - givenMz * tol2 / 1e6
@@ -12,15 +13,20 @@ def findIsotopologuePeak(features, spec, givenMz, tol1, tol2):
     rtShift = 0
     if sum(idx) > 0:
         ms1 = int(spec["num"])
+        rt = float(spec["retentionTime"])
         maxIdx = np.argmax(spec["intensity array"][idx])
         mz = spec["m/z array"][idx][maxIdx]
         intensity = spec["intensity array"][idx][maxIdx]
     # Case 2. When there's NO isotopologue peak in the MS1 spectrum
     else:
         mz, intensity, ms1, rt = findFeature(features, givenMz, tol1)
+        # Case 2-1. Even though the isotopologue is not found in the MS1 spectrum, it is found in another feature
         if mz > 0:
             rtShift = rt - spec["retentionTime"]
-            mz, intensity = 0, 0  # If the isotopologue is not found, no need to return mz and intensity
+            mz, intensity = 0, 0
+        # Case 2-2. Isotologue cannot be found neither in the MS1 scan nor in any feature
+        else:
+            mz, intensity, ms1, rt, rtShift = 0, 0, 0, 0, 0
 
     return mz, intensity, ms1, rt, rtShift
 
@@ -42,6 +48,37 @@ def findFeature(features, givenMz, tol):
     else:
         return 0, 0, 0, 0
 
+
+def getMs2Score(uid, mz, scanNum, reader, conn):
+    # From the MS1 scan where M0 is identified, a MS2 scan in which M0 is fragmented needs to be found
+    scanNum += 1
+    foundMs2 = 0
+    sim = 0
+    while foundMs2 == 0:
+        spec = reader[str(scanNum)]
+        if spec["msLevel"] == 2:
+            p = re.search("([0-9.]+)\\@", spec["filterLine"])
+            precMz = float(p.group(1))
+            if abs(precMz - mz) < 0.1:
+                # Calculate MS2-based similarity with the library spectrum
+                # Query library and obtain St. Jude ID of the given metabolite (if possible)
+                sqlQuery = r'SELECT id FROM library ' \
+                           r'WHERE "other_ids(KEGG;HMDB;PubChem_CID;PubChem_SID;ChEBI;METLIN;CAS)" LIKE "%{}%" AND ' \
+                           r'id NOT LIKE "%Decoy%"'.format(uid)
+                sjid = pd.read_sql_query(sqlQuery, conn)
+                if not sjid.empty:
+                    sjid = sjid["id"].values[0]
+                    libMs2 = pd.read_sql_query(r'SELECT * FROM {}'.format(sjid), conn)
+                    queryMs2 = pd.DataFrame({"mz": spec["m/z array"], "intensity": spec["intensity array"]})
+                    sim = calcMS2Similarity(queryMs2, libMs2)
+                else:
+                    sim = np.nan
+                foundMs2 = 1
+        scanNum += 1
+
+    return sim
+
+
 def findIsotopologues(features, mzxmlFile, df, tol1, tol2):
     # Input arguments
     # features = a pandas dataframe of all features
@@ -49,6 +86,13 @@ def findIsotopologues(features, mzxmlFile, df, tol1, tol2):
     # df = a pandas dataframe of isotopologue information
     # tol1 = m/z tolerance (ppm) for finding the feature corresponding to M0
     # tol2 = m/z tolerance (ppm) for finding the isotopologue peak (from M(i) to M(i+1)) in a MS1 scan
+
+    # Load library
+    libFile = r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Library\StJude\stjude_library_c18p.db"
+    try:
+        conn = sqlite3.connect(libFile)
+    except:
+        sys.exit("Library file cannot be found or cannot be loaded.")
 
     # Summarize the information of metabolites
     dictM0 = {}
@@ -60,10 +104,10 @@ def findIsotopologues(features, mzxmlFile, df, tol1, tol2):
     # Looking for the features corresponding to M0 of metabolites
     reader = mzxml.MzXML(mzxmlFile)
     delC = 1.003355
-    res = {"id": [], "mz": [], "intensity": [], "rt": [], "rtShift": []}
+    res = {"id": [], "mz": [], "intensity": [], "ms1": [], "rt": [], "rtShift": [], "ms2Score": []}
     for uid, theoMz in dictM0.items():
         res["id"].append(uid)
-        mzArray, intensityArray, ms1Array, rtArray, rtShiftArray = [], [], [], [], []
+        mzArray, intensityArray, ms1Array, rtArray, rtShiftArray, scoreArray = [], [], [], [], [], []
         ########################
         # Identification of M0 #
         ########################
@@ -76,6 +120,8 @@ def findIsotopologues(features, mzxmlFile, df, tol1, tol2):
             print("M0 for {} is not found".format(uid))
             continue
 
+        # If M0 is identified, MS2-based score based on M0's fragment ions will be obtained
+        sim = getMs2Score(uid, mz, ms1, reader, conn)
 
         # Put M0 information to mzArray and intensityArray
         mzArray.append(mz)
@@ -83,6 +129,7 @@ def findIsotopologues(features, mzxmlFile, df, tol1, tol2):
         ms1Array.append(ms1)
         rtArray.append(rt)
         rtShiftArray.append(0)
+        scoreArray.append(sim)
 
         #####################################
         # Identification of M1, M2, ..., Mn #
@@ -95,22 +142,45 @@ def findIsotopologues(features, mzxmlFile, df, tol1, tol2):
             obsMz, obsIntensity, obsMs1, obsRt, obsRtShift = findIsotopologuePeak(features, spec, mz, tol1, tol2)
             if obsMz > 0:
                 mz = obsMz  # When an isotopologue is found, the next one will be searched from the current one
-
             mzArray.append(obsMz)
             intensityArray.append(obsIntensity)
             ms1Array.append(obsMs1)
             rtArray.append(obsRt)
             rtShiftArray.append(obsRtShift)
+            scoreArray.append(0)    # MS2-based score is only available for M0
 
         res["mz"].append(mzArray)
         res["intensity"].append(intensityArray)
+        res["ms1"].append(ms1Array)
         res["rt"].append(rtArray)
         res["rtShift"].append(rtShiftArray)
+        res["ms2Score"].append(scoreArray)
 
     res = pd.DataFrame.from_dict(res)
     return res
 
 
+# This function makes a correction matrix whose column-wise sum is 1
+# def correctionMatrix(df):
+#     res = {}
+#     uids = df["idhmdb"].unique()
+#     for uid in uids:
+#         subDf = df[df["idhmdb"] == uid]
+#         n = subDf.shape[0]
+#         cm = np.zeros((n, n))
+#         for j in range(n):
+#             vec = subDf.iloc[j]["isotope_intensity"].split(";")
+#             for i in range(len(vec)):
+#                 if i + j < n:
+#                     cm[i + j, j] = float(vec[i]) / 100
+#                 else:
+#                     continue
+#         res[uid] = cm
+#
+#     return res
+
+
+# This function makes a correction matrix whose row-wise sum is 1
 def correctionMatrix(df):
     res = {}
     uids = df["idhmdb"].unique()
@@ -118,14 +188,15 @@ def correctionMatrix(df):
         subDf = df[df["idhmdb"] == uid]
         n = subDf.shape[0]
         cm = np.zeros((n, n))
-        for j in range(n):
-            vec = subDf.iloc[j]["isotope_intensity"].split(";")
-            for i in range(len(vec)):
+        for i in range(n):
+            vec = subDf.iloc[i]["isotope_intensity"].split(";")
+            for j in range(len(vec)):
                 if i + j < n:
-                    cm[i + j, j] = float(vec[i]) / 100
+                    cm[i, i + j] = float(vec[j]) / 100
                 else:
                     continue
         res[uid] = cm
+
     return res
 
 
@@ -146,6 +217,7 @@ def quantifyIsotopologues(infoDf, isoDf):
         pctArray.append(correctedIntensity / sum(correctedIntensity) * 100)
     isoDf["correctedIntensity"] = intensityArray
     isoDf["labelingPct"] = pctArray
+
     return isoDf
 
 
@@ -169,10 +241,25 @@ if __name__ == "__main__":
     # res = pd.concat([res, pctDf], axis=1)
     # print()
 
-    inputFile = "isotope_distribution.xlsx"
-    mzxmlFile = r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\7_tracer.mzXML"
-    features = pd.read_csv("features_7_tracer.txt", sep="\t")
-    df = pd.read_excel(inputFile)
-    tol1, tol2 = 15, 5
-    res = findIsotopologues(features, mzxmlFile, df, tol1, tol2)
+    # inputFile = "isotope_distribution.xlsx"
+    # mzxmlFile = r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\7_tracer.mzXML"
+    # features = pd.read_csv("features_7_tracer.txt", sep="\t")
+    # df = pd.read_excel(inputFile)
+    # tol1, tol2 = 15, 5
+    # res = findIsotopologues(features, mzxmlFile, df, tol1, tol2)
+    # res = formatOutput(df, res)
+    # print()
 
+    # import pickle
+    # [res, isoDf] = pickle.load(open("isoDf.pickle", "rb"))
+    # res = formatOutput(res, isoDf)
+    # print()
+
+
+    mzxmlFile = r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\6_nolable.mzXML"
+    infoDf = pd.read_excel("isotope_distribution.xlsx")
+    features = pd.read_csv("features_6_nolabel.txt", sep="\t")
+
+    df = findIsotopologues(features, mzxmlFile, infoDf, 15, 5)
+    df = quantifyIsotopologues(infoDf, df)
+    print()

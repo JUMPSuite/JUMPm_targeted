@@ -10,6 +10,7 @@ def formatOutput(res, isoDf):
     intensityDf = pd.DataFrame()
     pctDf = pd.DataFrame()
     n = res.shape[0]
+    mzArray = np.zeros(n)
     ms1Array = np.zeros(n)
     rtArray = np.zeros(n)
     rtShiftArray = np.zeros(n)
@@ -25,17 +26,20 @@ def formatOutput(res, isoDf):
 
         # Add other information to the corresponding arrays
         if np.all(ms1Array == 0):
+            mzArray = np.array(df["mz"])
             ms1Array = np.array(df["ms1"])
             rtArray = np.array(df["rt"])
             rtShiftArray = np.array(df["rtShift"])
             scoreArray = np.array(df["ms2Score"])
         else:
             for i in range(n):
+                mzArray[i] = str(mzArray[i]) + ";" + str(df.loc[i]["mz"])
                 ms1Array[i] = str(ms1Array[i]) + ";" + str(df.loc[i]["ms1"])
                 rtArray[i] = str(rtArray[i]) + ";" + str(df.loc[i]["rt"])
                 rtShiftArray[i] = str(rtShiftArray[i]) + ";" + str(df.loc[i]["rtShift"])
                 scoreArray[i] = str(scoreArray[i]) + ";" + str(df.loc[i]["ms2Score"])
 
+    res["observed_m/z"] = mzArray
     res["MS1"] = ms1Array
     res["RT"] = rtArray
     res["RTshift"] = rtShiftArray

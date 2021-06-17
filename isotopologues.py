@@ -189,12 +189,19 @@ def correctionMatrix(df):
         n = subDf.shape[0]
         cm = np.zeros((n, n))
         for i in range(n):
-            vec = subDf.iloc[i]["isotope_intensity"].split(";")
-            for j in range(len(vec)):
-                if i + j < n:
-                    cm[i, i + j] = float(vec[j]) / 100
-                else:
-                    continue
+            # Assume that "intensity" is already sorted and organized from M0 to Mn
+            intensity = subDf.iloc[i]["isotope_intensity"].split(";")
+            cm[i, :] = [float(val) / 100 for val in intensity]
+
+            # mz = subDf.iloc[i]["isotope_m/z"].split(";")
+            # ind = np.argsort(mz)
+            # intensity = subDf.iloc[i]["isotope_intensity"].split(";")
+            # intensity = [x for _, x in sorted(zip(ind, intensity))]
+            # for j in range(len(intensity)):
+            #     if i + j < n:
+            #         cm[i, i + j] = float(intensity[j]) / 100
+            #     else:
+            #         continue
         res[uid] = cm
 
     return res
@@ -249,7 +256,7 @@ if __name__ == "__main__":
     # res = findIsotopologues(features, mzxmlFile, df, tol1, tol2)
     # res = formatOutput(df, res)
     # print()
-
+    #
     # import pickle
     # [res, isoDf] = pickle.load(open("isoDf.pickle", "rb"))
     # res = formatOutput(res, isoDf)
@@ -257,7 +264,7 @@ if __name__ == "__main__":
 
 
     mzxmlFile = r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\6_nolable.mzXML"
-    infoDf = pd.read_excel("isotope_distribution.xlsx")
+    infoDf = pd.read_csv("isotope_distribution.txt", sep="\t")
     features = pd.read_csv("features_6_nolabel.txt", sep="\t")
 
     df = findIsotopologues(features, mzxmlFile, infoDf, 15, 5)

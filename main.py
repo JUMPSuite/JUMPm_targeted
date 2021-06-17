@@ -40,7 +40,7 @@ def formatOutput(res, isoDf):
                 scoreArray[i] = str(scoreArray[i]) + ";" + str(df.loc[i]["ms2Score"])
 
     res["observed_m/z"] = mzArray
-    res["MS1"] = ms1Array
+    res["MS1scan"] = ms1Array
     res["RT"] = rtArray
     res["RTshift"] = rtShiftArray
     res["MS2score"] = scoreArray
@@ -60,7 +60,7 @@ if __name__ == "__main__":
     # Parameters are
     # 1. List of targeted metabolites (names and formulas)
     # 2. Feature detection-related parameters
-    inputFile = "isotope_distribution.xlsx"
+    inputFile = "isotope_distribution.txt"
     paramFile = "jumpm_targeted.params"
     mzxmlFiles = [r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\6_nolable.mzXML",
                   r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\7_tracer.mzXML",
@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
     # Input dataframe (from Surendhar's program)
     # What is going to be a "key"? metabolite name? HMDB ID?
-    infoDf = pd.read_excel(inputFile)
+    infoDf = pd.read_csv(inputFile, sep="\t")
     isoDf = {}
     res = infoDf.copy()
     for mzxmlFile in mzxmlFiles:

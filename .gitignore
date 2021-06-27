@@ -12,3 +12,6 @@ stjude_library_hilicn.db
 *.txt
 .ipynb_checkpoints/
 *.docx
+isotope_tracing/
+*.csv
+*.ipynb

@@ -2,6 +2,7 @@ import os, numpy as np, pandas as pd
 from pyteomics import mzxml
 from datetime import datetime
 from utils import *
+from isotopeCalculation import *
 
 def findPeak(spec, givenMz, tol):
     lL = givenMz - givenMz * tol / 1e6
@@ -160,26 +161,35 @@ def formatOutput(res, isoDf):
 
 
 if __name__ == "__main__":
-
     startTime = datetime.now()
     startTimeString = startTime.strftime("%Y/%m/%d %H:%M:%S")
     print("  " + startTimeString)
+    print("  JUMPm: quantification of target metabolites\n")
 
-    refDf = pd.read_csv("6_nolable_jumpm.csv")
-    infoDf = pd.read_csv("isotope_distribution.txt", sep="\t")
-    res = infoDf.copy()
-    # Temporarily
-    infoDf = infoDf.merge(refDf, left_on="name", right_on="name")
-    mzxmlFiles = [
-        r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\6_nolable.mzXML",
-        r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\7_tracer.mzXML",
-        r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\8_tracer.mzXML",
-        r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\9_tracer.mzXML"]
+    # Input arguments
+    # 1. A parameter file containing the following,
+    #    - List of target metabolites
+    #    - Experimental conditions including a tracer, MS mode (pos or neg), etc.
+    # 2. A table containing the feature information of target metabolites in a reference run (sample)
+    # 3. List of mzXML files
+
     paramFile = "jumpm_targeted.params"
+    refInfoFile = "6_nolable_jumpm.csv"
+    mzxmlFiles = [r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\6_nolable.mzXML",
+                  r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\7_tracer.mzXML",
+                  r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\8_tracer.mzXML",
+                  r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\9_tracer.mzXML"]
     params = getParams(paramFile)
-    isoDf = {}
+    refDf = pd.read_csv(refInfoFile)
 
+    # Calculation of theoretical isotopic distributions (Surendhar's script)
+    infoDf = getIsotopicDistributions(paramFile, refInfoFile)
+    infoDf = refDf.merge(infoDf, left_on="name", right_on="name")
+
+    res = infoDf.copy()
+    isoDf = {}
     for mzxmlFile in mzxmlFiles:
+        print("  Working on {}".format(os.path.basename(mzxmlFile)))
         if os.path.basename(mzxmlFile) == "6_nolable.mzXML":
             isRef = 1
         else:
@@ -190,7 +200,11 @@ if __name__ == "__main__":
 
     # Format the output dataframe
     res = formatOutput(res, isoDf)
-    res.to_csv("tracer_result2.txt", sep="\t", index=False)
+    res.to_csv("tracer_result.txt", sep="\t", index=False)
 
-    elapsed = (datetime.now() - startTime).total_seconds()
-    print("  Took {} seconds".format(int(elapsed)))
+    print()
+    endTime = datetime.now()
+    endTimeString = endTime.strftime("%Y/%m/%d %H:%M:%S")
+    print("  " + endTimeString)
+    elapsed = (endTime - startTime).total_seconds()
+    print("  Finished in {} seconds".format(int(elapsed)))

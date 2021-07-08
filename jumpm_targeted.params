@@ -17,5 +17,4 @@ Tracer_1_purity = 0.99
 PTM_mono_oxidation = @    # Optional parameter, oxidation on methionine, M@
 PTM_phosphorylation = #   # Optional parameter, phosphorylation on STY with #, %, *
 
-weighted_isotopic_peaks = 1  # 1 = merge isotopic peaks within mass_tolerance using weighted average of intensity; = 0 otherwise
-strong_isotopic_peaks = 0    # 1 = select strongest isotopic peaks within mass_tolerance  instead of merging isotopic peaks based on weighted average of intensity; = 0 otherwise
+method_merging_isotopic_peaks = 1    # Method of merging isotopic peaks within a tolerance, 1 = weighted average, 2 = strongest peak

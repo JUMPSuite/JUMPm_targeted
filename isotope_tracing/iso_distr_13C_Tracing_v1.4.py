@@ -273,8 +273,9 @@ def iso_distri(iso_mass_inten_dict_trimed, chemical_com, Charge, isotope_cutoff,
 
 #############################################################################  Main program strats here #######################################
 #paramFile= "iso_distr_13C_Tracing.params"
-paramFile = sys.argv[1]
+# paramFile = sys.argv[1]
 #print("paramFile = ", paramFile)
+paramFile = "iso_distr_13C_Tracing_v1.4.params"
 params = getParams(paramFile)
 
 if 'PTM_Phosphorilation' in params:

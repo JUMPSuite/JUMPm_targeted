@@ -3,3 +3,4 @@
 __pycache__/
 venv/
 tracer_result.txt
+isotope_tracing/

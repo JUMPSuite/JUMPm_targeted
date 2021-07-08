@@ -87,7 +87,7 @@ def findIsotopologue(mzxmlFile, infoDf, isRef, params):
     return res
 
 
-def quantifyIsotopologues(infoDf, isoDf):
+def correctNaturalAbundance(infoDf, isoDf):
     # Input arguments
     # infoDf = a pandas dataframe containing the information of isotopologues, e.g., theoretical isotopic peak m/z and intensitry
     # isoDf = a pandas dataframe containing the identified isotopologues of given metabolites
@@ -174,12 +174,12 @@ if __name__ == "__main__":
     # 3. List of mzXML files
 
     paramFile = "jumpm_targeted.params"
-    refInfoFile = "6_nolable_jumpm.csv"
     mzxmlFiles = [r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\6_nolable.mzXML",
                   r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\7_tracer.mzXML",
                   r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\8_tracer.mzXML",
                   r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\9_tracer.mzXML"]
     params = getParams(paramFile)
+    refInfoFile = params["ref_feature_information"]    # JUMPm result of the reference run
     refDf = pd.read_csv(refInfoFile)
 
     # Calculation of theoretical isotopic distributions (Surendhar's script)
@@ -187,15 +187,17 @@ if __name__ == "__main__":
     infoDf = refDf.merge(infoDf, left_on="name", right_on="name")
 
     res = infoDf.copy()
+    res = res[["idhmdb", "formula", "name", "feature_ion", "feature_z", "isotopologues", "isotope_m/z", "isotope_intensity"]]
+    res = res.rename(columns={"feature_ion": "ion", "feature_z": "charge"})
     isoDf = {}
     for mzxmlFile in mzxmlFiles:
         print("  Working on {}".format(os.path.basename(mzxmlFile)))
-        if os.path.basename(mzxmlFile) == "6_nolable.mzXML":
+        if os.path.basename(mzxmlFile) == params["ref_run"]:
             isRef = 1
         else:
             isRef = 0
         df = findIsotopologue(mzxmlFile, infoDf, isRef, params)
-        df = quantifyIsotopologues(infoDf, df)
+        df = correctNaturalAbundance(infoDf, df)
         isoDf[os.path.basename(mzxmlFile)] = df
 
     # Format the output dataframe

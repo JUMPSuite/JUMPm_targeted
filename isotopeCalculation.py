@@ -264,12 +264,11 @@ def iso_distri_(iso_mass_inten_dict_trimmed, chemical_com, Charge, isotope_cutof
     
     return pep_iso_distr_df
              
-def iso_distri(iso_mass_inten_dict_trimed, chemical_com, Charge, isotope_cutoff, mass_tolerance, select_strong_intensity_peaks, is_pep):
-    if select_strong_intensity_peaks == 1:
-        pep_iso_distr_df = iso_distri_(iso_mass_inten_dict_trimed, chemical_com, Charge, isotope_cutoff, mass_tolerance, select_weighted_mass = 0, select_strong_intensity_peaks = 1 )
+def iso_distri(iso_mass_inten_dict_trimed, chemical_com, Charge, isotope_cutoff, mass_tolerance, method_merging_isotopic_peaks, is_pep):
+    if method_merging_isotopic_peaks == 2:
+        pep_iso_distr_df = iso_distri_(iso_mass_inten_dict_trimed, chemical_com, Charge, isotope_cutoff, mass_tolerance, select_weighted_mass=0, select_strong_intensity_peaks = 1 )
     else: # if user wants to merge isotopic peaks within mass_tolerance using weighted average of intensity   
         pep_iso_distr_df = iso_distri_(iso_mass_inten_dict_trimed, chemical_com, Charge, isotope_cutoff, mass_tolerance, select_weighted_mass=1, select_strong_intensity_peaks=0 )
-    #print(pep_iso_distr_df)
     pep_iso_distr_df['isotope_mass'] = (pep_iso_distr_df['isotope_mass'].values + 1.007276466812000* Charge)/abs(Charge)  # electron mass
 
     #print(pep_iso_distr_df)
@@ -281,12 +280,9 @@ def iso_distri(iso_mass_inten_dict_trimed, chemical_com, Charge, isotope_cutoff,
 
 
 def getIsotopicDistributions(paramFile, inputFile):
-    paramFile = "jumpm_targeted.params"
-    inputFile = "6_nolable_jumpm.csv"
-    preComputedIsotopes = "isotopeMassIntensity.pkl"
-
     params = getParams(paramFile)
     inputDf = pd.read_csv(inputFile)
+    preComputedIsotopes = "isotopeMassIntensity.pkl"
 
     # Open the default elementary dictionary
     with open(preComputedIsotopes, 'rb') as f:
@@ -352,7 +348,7 @@ def getIsotopicDistributions(paramFile, inputFile):
                 chemical_com_["y"] = j  # x = N15
                 chemical_com_ = {k: v for k, v in chemical_com_.items() if v != 0}
 
-            iso_distr = iso_distri(iso_mass_inten_dict_trimmed, chemical_com_, inputDf.feature_z[i], float(params['isotope_cutoff']), float(params['mass_tolerance']), float(params['strong_isotopic_peaks']), is_pep =0)
+            iso_distr = iso_distri(iso_mass_inten_dict_trimmed, chemical_com_, inputDf.feature_z[i], float(params['isotope_cutoff']), float(params['mass_tolerance']), float(params['method_merging_isotopic_peaks']), is_pep =0)
             if 'groups' in iso_distr.columns:
                 iso_distr.drop(['groups'],axis=1,inplace=True)
 

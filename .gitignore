@@ -4,4 +4,7 @@ __pycache__/
 venv/
 tracer_result.txt
 isotope_tracing/
+backup/
+C13_isotope_tracing/
 tracer_corrected_result.txt
+*.txt

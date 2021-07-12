@@ -207,12 +207,12 @@ if __name__ == "__main__":
     # Mode 1, identification and quantification of isotopologues (of given target metabolites)
     if params["mode"] == "1":
         print("  Isotopologues of given target metabolites are identified and quantified")
-        # mzxmlFiles = sys.argv[2:]
-        mzxmlFiles = [
-            r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\6_nolable.mzXML",
-            r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\7_tracer.mzXML",
-            r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\8_tracer.mzXML",
-            r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\9_tracer.mzXML"]
+        mzxmlFiles = sys.argv[2:]
+        # mzxmlFiles = [
+        #     r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\6_nolable.mzXML",
+        #     r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\7_tracer.mzXML",
+        #     r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\8_tracer.mzXML",
+        #     r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\9_tracer.mzXML"]
 
         # Calculation of theoretical isotopic distributions (Surendhar's script)
         refInfoFile = params["ref_feature_information"]  # JUMPm result of the reference run
@@ -235,12 +235,18 @@ if __name__ == "__main__":
         # Format the output dataframe
         res = formatOutput(res, isoDf)
         res.to_csv("tracer_result.txt", sep="\t", index=False)
+
     # Mode 2, correction of natural abundances of isotopic peaks (of quantified isotopologues)
     elif params["mode"] == "2":
         print("  Quantity data of isotopologues is corrected by natural abundances")
-        # inputFile = sys.argv[2] # The quantification result (i.e., output of mode = 1) is used as an input
-        inputFile = "tracer_result.txt"
-        df = pd.read_csv(inputFile, sep="\t")
+        try:
+            inputFile = params["quan_result"]
+        except KeyError:
+            sys.exit("  'quan_result' parameter should be correctly specified")
+        try:
+            df = pd.read_csv(inputFile, sep="\t")
+        except FileNotFoundError:
+            sys.exit("  'Please check 'quan_result' parameter whether the file path is correctly specified")
         res = correctNaturalAbundance(df)
         res.to_csv("tracer_corrected_result.txt", sep="\t", index=False)
     else:

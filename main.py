@@ -32,7 +32,7 @@ def findIsotopologue(mzxmlFile, infoDf, isRef, params):
     tol = 5
     reader = mzxml.MzXML(mzxmlFile)
     df = pd.DataFrame(reader)
-    res = {"id":[], "ms1":[], "rt":[], "mz":[], "intensity":[]}
+    res = {"id":[], "ms1":[], "rt":[], "mz":[], "intensity":[], "pct": []}
 
     for uid in dictM0.keys():
         res["id"].append(uid)
@@ -82,11 +82,14 @@ def findIsotopologue(mzxmlFile, infoDf, isRef, params):
         res["intensity"].append(intensityArray)
         res["ms1"].append(ms1Array)
         res["rt"].append(rtArray)
+        res["pct"].append(intensityArray / sum(intensityArray) * 100)
 
     res = pd.DataFrame.from_dict(res)
     return res
 
 
+"""
+# This is an old version of "correctNaturalAbundance" function
 def correctNaturalAbundance(infoDf, isoDf):
     # Input arguments
     # infoDf = a pandas dataframe containing the information of isotopologues, e.g., theoretical isotopic peak m/z and intensitry
@@ -106,6 +109,29 @@ def correctNaturalAbundance(infoDf, isoDf):
     isoDf["labelingPct"] = pctArray
 
     return isoDf
+"""
+
+
+def correctNaturalAbundance(df):
+    # Input arguments
+    # inputDf = a pandas dataframe containing the information of isotopologues and their quantity (uncorrected)
+
+    # Quantification of isotopologues
+    intensityArray, pctArray = [], []
+    cm = correctionMatrix(df)   # Correction matrix derived from the theoretical information of isotopologues
+    cols = [s for s in df.columns if s.endswith("intensity") and s != "isotope_intensity"]
+    uids = df["idhmdb"].unique()
+    for uid in uids:
+        idx = df["idhmdb"] == uid
+        for col in cols:
+            intensity = df.loc[idx][col]
+            correctedIntensity = np.dot(np.linalg.inv(cm[uid]), intensity)
+            correctedIntensity[correctedIntensity < 0] = 0
+            df.loc[idx, col] = correctedIntensity
+            correctedPct = correctedIntensity / sum(correctedIntensity) * 100
+            df.loc[idx, col.replace("intensity", "labelingPct")] = correctedPct
+
+    return df
 
 
 def correctionMatrix(df):
@@ -137,8 +163,8 @@ def formatOutput(res, isoDf):
         df = df.set_index(["id"]).apply(pd.Series.explode).reset_index()
 
         # Add the corrected intensity and labeling percentage to the dataframes
-        intensityDf[key.split(".")[0] + "_intensity"] = df["correctedIntensity"]
-        pctDf[key.split(".")[0] + "_labelingPct"] = df["labelingPct"]
+        intensityDf[key.split(".")[0] + "_intensity"] = df["intensity"]
+        pctDf[key.split(".")[0] + "_labelingPct"] = df["pct"]
 
         # Add other information to the corresponding arrays
         if np.all(ms1Array == 0):
@@ -164,45 +190,61 @@ if __name__ == "__main__":
     startTime = datetime.now()
     startTimeString = startTime.strftime("%Y/%m/%d %H:%M:%S")
     print("  " + startTimeString)
-    print("  JUMPm: quantification of target metabolites\n")
+    print("  JUMPm for targeted metabolites\n")
 
     # Input arguments
     # 1. A parameter file containing the following,
-    #    - List of target metabolites
+    #    - A table (.csv) containing the feature information of target metabolites in a reference run (sample)
+    #      It includes the information of target metabolites, operation mode (negative or positive), charge and so on
+    #    - Parameters for calculating theoretical natural abundances of target metabolitesList of target metabolites
     #    - Experimental conditions including a tracer, MS mode (pos or neg), etc.
-    # 2. A table containing the feature information of target metabolites in a reference run (sample)
+    # 2.
     # 3. List of mzXML files
 
     paramFile = "jumpm_targeted.params"
-    mzxmlFiles = [r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\6_nolable.mzXML",
-                  r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\7_tracer.mzXML",
-                  r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\8_tracer.mzXML",
-                  r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\9_tracer.mzXML"]
     params = getParams(paramFile)
-    refInfoFile = params["ref_feature_information"]    # JUMPm result of the reference run
-    refDf = pd.read_csv(refInfoFile)
 
-    # Calculation of theoretical isotopic distributions (Surendhar's script)
-    infoDf = getIsotopicDistributions(paramFile, refInfoFile)
-    infoDf = refDf.merge(infoDf, left_on="name", right_on="name")
+    # Mode 1, identification and quantification of isotopologues (of given target metabolites)
+    if params["mode"] == "1":
+        print("  Isotopologues of given target metabolites are identified and quantified")
+        # mzxmlFiles = sys.argv[2:]
+        mzxmlFiles = [
+            r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\6_nolable.mzXML",
+            r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\7_tracer.mzXML",
+            r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\8_tracer.mzXML",
+            r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\9_tracer.mzXML"]
 
-    res = infoDf.copy()
-    res = res[["idhmdb", "formula", "name", "feature_ion", "feature_z", "isotopologues", "isotope_m/z", "isotope_intensity"]]
-    res = res.rename(columns={"feature_ion": "ion", "feature_z": "charge"})
-    isoDf = {}
-    for mzxmlFile in mzxmlFiles:
-        print("  Working on {}".format(os.path.basename(mzxmlFile)))
-        if os.path.basename(mzxmlFile) == params["ref_run"]:
-            isRef = 1
-        else:
-            isRef = 0
-        df = findIsotopologue(mzxmlFile, infoDf, isRef, params)
-        df = correctNaturalAbundance(infoDf, df)
-        isoDf[os.path.basename(mzxmlFile)] = df
+        # Calculation of theoretical isotopic distributions (Surendhar's script)
+        refInfoFile = params["ref_feature_information"]  # JUMPm result of the reference run
+        refDf = pd.read_csv(refInfoFile)
+        infoDf = getIsotopicDistributions(paramFile, refInfoFile)
+        infoDf = refDf.merge(infoDf, left_on="name", right_on="name")
+        res = infoDf.copy()
+        isoDf = {}
+        for mzxmlFile in mzxmlFiles:
+            print("  Working on {}".format(os.path.basename(mzxmlFile)))
+            if os.path.basename(mzxmlFile) == params["ref_run"]:
+                isRef = 1
+            else:
+                isRef = 0
+            df = findIsotopologue(mzxmlFile, infoDf, isRef, params)
+            isoDf[os.path.basename(mzxmlFile)] = df
+        res = res[["idhmdb", "formula", "name", "feature_ion", "feature_z", "isotopologues", "isotope_m/z", "isotope_intensity"]]
+        res = res.rename(columns={"feature_ion": "ion", "feature_z": "charge"})
 
-    # Format the output dataframe
-    res = formatOutput(res, isoDf)
-    res.to_csv("tracer_result.txt", sep="\t", index=False)
+        # Format the output dataframe
+        res = formatOutput(res, isoDf)
+        res.to_csv("tracer_result.txt", sep="\t", index=False)
+    # Mode 2, correction of natural abundances of isotopic peaks (of quantified isotopologues)
+    elif params["mode"] == "2":
+        print("  Quantity data of isotopologues is corrected by natural abundances")
+        # inputFile = sys.argv[2] # The quantification result (i.e., output of mode = 1) is used as an input
+        inputFile = "tracer_result.txt"
+        df = pd.read_csv(inputFile, sep="\t")
+        res = correctNaturalAbundance(df)
+        res.to_csv("tracer_corrected_result.txt", sep="\t", index=False)
+    else:
+        sys.exit("The parameter 'mode' should be properly set (either 1 or 2)")
 
     print()
     endTime = datetime.now()

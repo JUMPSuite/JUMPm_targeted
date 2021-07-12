@@ -1,14 +1,21 @@
+###########################
+# Parameter for operation #
+###########################
+mode = 2        # 1 = Identification/quantification of isotopologues, 2 = Natural abundance correction of the quantity data
+                # If you choose "mode = 2", all parameters below will not be used
+
 ###############################
 # Parameters for runs/samples #
 ###############################
-ref_run = 6_nolable.mzXML
+ref_run = 6_nolable.mzXML            # Name of the reference run (e.g., unlabeled run)
 ref_feature_information = 6_nolable_jumpm.csv 
 
 ########################################################
 # Parameters for the isotopic distribution calculation #
 ########################################################
-isotope_cutoff = 1e-2     # Intensity cutoff to filter the isotopic peaks 
-mass_tolerance = 10       # Tolerance for merging close isotopic peaks 
+isotope_cutoff = 1e-2                # Intensity cutoff to filter the isotopic peaks 
+mass_tolerance = 10                  # Tolerance for merging close isotopic peaks 
+method_merging_isotopic_peaks = 1    # Method of merging isotopic peaks within a tolerance, 1 = weighted average, 2 = strongest peak
 Tracer_1 = 13C            # Denoted by 13C or 15N
 Tracer_1_purity = 0.99
 #Tracer_2 = 15N
@@ -17,4 +24,3 @@ Tracer_1_purity = 0.99
 PTM_mono_oxidation = @    # Optional parameter, oxidation on methionine, M@
 PTM_phosphorylation = #   # Optional parameter, phosphorylation on STY with #, %, *
 
-method_merging_isotopic_peaks = 1    # Method of merging isotopic peaks within a tolerance, 1 = weighted average, 2 = strongest peak

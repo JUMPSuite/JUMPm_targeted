@@ -31,40 +31,54 @@ def findIsotopologue(mzxmlFile, infoDf, isRef, params):
     delC = 1.003355
     tol = 5
     reader = mzxml.MzXML(mzxmlFile)
-    df = pd.DataFrame(reader)
-    res = {"id":[], "ms1":[], "rt":[], "mz":[], "intensity":[], "pct": []}
+    ms1Scans = []
+    ms1RTs = []
+    for spec in reader:
+        if spec["msLevel"] == 1:
+            ms1Scans.append(spec["num"])
+            ms1RTs.append(spec["retentionTime"])
 
+    res = {"id":[], "ms1":[], "rt":[], "mz":[], "intensity":[], "pct": []}
     for uid in dictM0.keys():
         res["id"].append(uid)
         mzArray, intensityArray, ms1Array, rtArray = [], [], [], []
 
-        # Extract m/z and RT informatio of the "uid"
+        # Extract m/z and RT information of the "uid"
         mz = dictM0[uid]["mz"]
         rt = dictM0[uid]["rt"]
+        intensity = 0
 
+        # Look for the monoisotopic peak of "uid" (i.e., M0)
+        scanNum = 0
         if isRef == 1:  # When the current run is a reference run
-            idx = np.argmin(abs(df["retentionTime"] - rt))
-            scanNum = df.iloc[idx]["num"]
+            idx = np.argmin(abs(ms1RTs - rt))
+            scanNum = ms1Scans[idx]
         else:  # When the current run is not a reference run
-            # Consider MS1 spectra within +/-2.5 min of the reference RT
-            subDf = df[(df["msLevel"] == 1) & (df["retentionTime"] > rt - 2.5) & (df["retentionTime"] < rt + 2.5)]
-            subDf = subDf.set_index(["retentionTime"]).apply(pd.Series.explode).reset_index()
-            # Look for the MS1 peak whose m/z is withint the tolerance and intensity is the strongest among candidates
-            subDf = subDf[(subDf["m/z array"] >= mz - mz * tol / 1e6) & (subDf["m/z array"] <= mz + mz * tol / 1e6)]
-            subDf = subDf.sort_values(by="intensity array", ascending=False)
-            scanNum = subDf.iloc[0]["num"]
+            idxes = [i for i, v in enumerate(ms1RTs) if (rt - 2.5) < v < (rt + 2.5)]
+            if len(idxes) > 0:
+                maxIntensity = 0
+                for idx in idxes:
+                    mzs = reader[ms1Scans[idx]]["m/z array"]
+                    ints = reader[ms1Scans[idx]]["intensity array"]
+                    j = np.argmin(abs(mzs - mz))
+                    if mzs[j] >= (mz - mz * tol / 1e6) and mzs[j] <= (mz + mz * tol / 1e6) and ints[j] > maxIntensity:
+                        maxIntensity = ints[j]
+                        scanNum = ms1Scans[idx]
 
-        spec = reader[scanNum]
-        rt = spec["retentionTime"]
-        mz, intensity = findPeak(spec, mz, tol)
+        if scanNum != 0:    # When there is M0 of "uid"
+            # mz, rt and intensity are replaced with the observed ones
+            spec = reader[scanNum]
+            rt = spec["retentionTime"]
+            mz, intensity = findPeak(spec, mz, tol)
+        else:   # When there's no peak corresponding to M0 of "uid"
+            pass    # mz and rt: from the feature of the reference run, intensity = 0
+
         mzArray.append(mz)
         intensityArray.append(intensity)
         ms1Array.append(int(scanNum))
         rtArray.append(rt)
 
-        #####################################
-        # Identification of M1, M2, ..., Mn #
-        #####################################
+        # Identification of M1, M2, ..., Mn
         nIsotopologues = sum(infoDf["idhmdb"] == uid)
         for i in range(1, nIsotopologues):
             mz += delC  # Suppose that the tracer is 13C

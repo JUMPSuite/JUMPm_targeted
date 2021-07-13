@@ -282,7 +282,7 @@ def iso_distri(iso_mass_inten_dict_trimed, chemical_com, Charge, isotope_cutoff,
 def getIsotopicDistributions(paramFile, inputFile):
     params = getParams(paramFile)
     inputDf = pd.read_csv(inputFile)
-    preComputedIsotopes = "isotopeMassIntensity.pkl"
+    preComputedIsotopes = os.path.join(os.getcwd(), "isotopeMassIntensity.pkl")
 
     # Open the default elementary dictionary
     with open(preComputedIsotopes, 'rb') as f:

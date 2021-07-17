@@ -283,7 +283,7 @@ def iso_distri_(iso_mass_inten_dict, chemical_com, Charge, isotope_cutoff, mass_
         maxIntensity_isopeak = (pep_iso_distr_df_temp.loc[pep_iso_distr_df_temp.groups == 0])['pep_mass'].values[0]
         lb = (maxIntensity_isopeak - mass_tolerance * maxIntensity_isopeak / 1e6)  # [0]
         ub = (maxIntensity_isopeak + mass_tolerance * maxIntensity_isopeak / 1e6)  # [0]
-        pep_iso_distr_df_temp.loc[pep_iso_distr_df_temp['pep_mass'].between(lb, ub, inclusive=False), 'groups'] = i
+        pep_iso_distr_df_temp.loc[pep_iso_distr_df_temp['pep_mass'].between(lb, ub, inclusive="neither"), 'groups'] = i
     pep_iso_distr_df = pep_iso_distr_df_temp.copy()
     if select_weighted_mass == 1:
         pep_iso_distr_df['Rel_inten'] = pep_iso_distr_df['pep_intensity'] / pep_iso_distr_df.groupby('groups')[

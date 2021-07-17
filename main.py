@@ -215,7 +215,8 @@ if __name__ == "__main__":
     # 2.
     # 3. List of mzXML files
 
-    paramFile = "jumpm_targeted.params"
+    paramFile = sys.argv[1]
+    # paramFile = "jumpm_targeted.params"
     params = getParams(paramFile)
 
     # Mode 1, identification and quantification of isotopologues (of given target metabolites)

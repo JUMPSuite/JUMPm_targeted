@@ -8,3 +8,4 @@ backup/
 C13_isotope_tracing/
 tracer_corrected_result.txt
 *.txt
+test/

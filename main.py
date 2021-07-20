@@ -229,6 +229,9 @@ if __name__ == "__main__":
         #     r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\8_tracer.mzXML",
         #     r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\9_tracer.mzXML"]
 
+        if len(mzxmlFiles) == 0:
+            sys.exit("  You should specify mzXML files\n  e.g., jump -mpython -target jumpm_targeted.params test1.mzXML test2.mzXML ...")
+
         # Calculation of theoretical isotopic distributions (Surendhar's script)
         refInfoFile = params["ref_feature_information"]  # JUMPm result of the reference run
         refDf = pd.read_csv(refInfoFile)

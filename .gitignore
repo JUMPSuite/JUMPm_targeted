@@ -10,3 +10,7 @@ tracer_corrected_result.txt
 *.txt
 test/
 summary_jump_targeted_output_20210716.pptx
+test.py
+test.csv
+tmp.ipynb
+test.params

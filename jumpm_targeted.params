@@ -1,7 +1,7 @@
 ###########################
 # Parameter for operation #
 ###########################
-mode = 2                             # 1 = Identification/quantification of isotopologues, 2 = Natural abundance correction of the quantity data
+mode = 1                             # 1 = Identification/quantification of isotopologues, 2 = Natural abundance correction of the quantity data
                                      # If you choose "mode = 2", "quan_result" parameter below should be specified
 quan_result = tracer_result.txt
 

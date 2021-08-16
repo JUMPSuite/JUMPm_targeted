@@ -2,7 +2,8 @@ import os, numpy as np, pandas as pd
 from pyteomics import mzxml
 from datetime import datetime
 from utils import *
-from isotopeCalculation import *
+# from isotopeCalculation import *
+from isotopeCalcEmass import *
 
 
 def findPeak(spec, givenMz, tol):
@@ -103,30 +104,6 @@ def findIsotopologue(mzxmlFile, infoDf, isRef, params):
     return res
 
 
-"""
-# This is an old version of "correctNaturalAbundance" function
-def correctNaturalAbundance(infoDf, isoDf):
-    # Input arguments
-    # infoDf = a pandas dataframe containing the information of isotopologues, e.g., theoretical isotopic peak m/z and intensitry
-    # isoDf = a pandas dataframe containing the identified isotopologues of given metabolites
-
-    # Quantification of isotopologues
-    intensityArray, pctArray = [], []
-    cm = correctionMatrix(infoDf)   # Correction matrix derived from the theoretical information of isotopologues
-    for i in range(isoDf.shape[0]):
-        uid = isoDf.loc[i]["id"]
-        intensity = isoDf.loc[i]["intensity"]
-        correctedIntensity = np.dot(np.linalg.inv(cm[uid]), intensity)
-        correctedIntensity[correctedIntensity < 0] = 0
-        intensityArray.append(correctedIntensity)
-        pctArray.append(correctedIntensity / sum(correctedIntensity) * 100)
-    isoDf["correctedIntensity"] = intensityArray
-    isoDf["labelingPct"] = pctArray
-
-    return isoDf
-"""
-
-
 def correctNaturalAbundance(df):
     # Input arguments
     # inputDf = a pandas dataframe containing the information of isotopologues and their quantity (uncorrected)
@@ -201,6 +178,27 @@ def formatOutput(res, isoDf):
     return res
 
 
+def getIsotopicDistributions(df, params):
+    # Input arguments
+    # df = a pandas dataframe containing the JUMPm result of the reference run
+    #      "formula" is used for the input argument of calculating isotopic peaks of isotopologues
+    #      "name" is used as a key for merging dataframes later
+    # params = a dictionary of parameters
+
+    res = pd.DataFrame()
+    for i in range(df.shape[0]):
+        formula = df.formula[i]
+        if df.feature_ion[i][-1] == "+":
+            charge = df.feature_z[i]
+        elif df.feature_ion[i][-1] == "-":
+            charge = -df.feature_z[i]
+        res_i = getIsotopologues(formula, charge, params)
+        res_i["name"] = df.name[i]
+        res = res.append(res_i, ignore_index=True)
+
+    return res
+
+
 if __name__ == "__main__":
     startTime = datetime.now()
     startTimeString = startTime.strftime("%Y/%m/%d %H:%M:%S")
@@ -216,19 +214,19 @@ if __name__ == "__main__":
     # 2.
     # 3. List of mzXML files
 
-    paramFile = sys.argv[1]
-    # paramFile = "jumpm_targeted.params"
+    # paramFile = sys.argv[1]
+    paramFile = "jumpm_targeted.params"
     params = getParams(paramFile)
 
     # Mode 1, identification and quantification of isotopologues (of given target metabolites)
     if params["mode"] == "1":
         print("  Isotopologues of given target metabolites are identified and quantified")
-        mzxmlFiles = sys.argv[2:]
-        # mzxmlFiles = [
-        #     r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\6_nolable.mzXML",
-        #     r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\7_tracer.mzXML",
-        #     r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\8_tracer.mzXML",
-        #     r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\9_tracer.mzXML"]
+        # mzxmlFiles = sys.argv[2:]
+        mzxmlFiles = [
+            r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\6_nolable.mzXML",
+            r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\7_tracer.mzXML",
+            r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\8_tracer.mzXML",
+            r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\9_tracer.mzXML"]
 
         if len(mzxmlFiles) == 0:
             sys.exit("  You should specify mzXML files\n  e.g., jump -mpython -target jumpm_targeted.params test1.mzXML test2.mzXML ...")
@@ -236,7 +234,8 @@ if __name__ == "__main__":
         # Calculation of theoretical isotopic distributions (Surendhar's script)
         refInfoFile = params["ref_feature_information"]  # JUMPm result of the reference run
         refDf = pd.read_csv(refInfoFile)
-        infoDf = getIsotopicDistributions(paramFile, refInfoFile)
+        infoDf = getIsotopicDistributions(refDf, params)
+        # infoDf = getIsotopicDistributions(paramFile, refInfoFile)
         infoDf = refDf.merge(infoDf, left_on="name", right_on="name")
         res = infoDf.copy()
         isoDf = {}
@@ -253,7 +252,7 @@ if __name__ == "__main__":
 
         # Format the output dataframe
         res = formatOutput(res, isoDf)
-        res.to_csv("tracer_result.txt", sep="\t", index=False)
+        res.to_csv("tracer_result_emass.txt", sep="\t", index=False)
 
     # Mode 2, correction of natural abundances of isotopic peaks (of quantified isotopologues)
     elif params["mode"] == "2":

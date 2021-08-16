@@ -202,7 +202,6 @@ def gen_array_combi(n, element):
 
 
 def iso_distri_largeNum(element, count, iso_mass_inten_dict):
-    print('iso_distri_largeNum --  element = ', element, 'count = ', count)
     gen_iso_combi_array = gen_array_combi(count, element)
     iso_inten_temp = iso_mass_inten_dict[element]['Intensity'][gen_iso_combi_array[0]]
     iso_mass_temp = iso_mass_inten_dict[element]['Mass'][gen_iso_combi_array[0]]

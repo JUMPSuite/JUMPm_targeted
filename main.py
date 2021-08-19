@@ -14,7 +14,7 @@ def findPeak(spec, givenMz, tol):
         mz = spec["m/z array"][idx][maxIdx]
         intensity = spec["intensity array"][idx][maxIdx]
     else:    # No peak is found around "givenMz"
-        mz, intensity = 0, 0
+        mz, intensity = givenMz, 0
 
     return mz, intensity
 
@@ -72,7 +72,7 @@ def findIsotopologue(mzxmlFile, infoDf, isRef, params):
             rt = spec["retentionTime"]
             mz, intensity = findPeak(spec, mz, tol)
         else:   # When there's no peak corresponding to M0 of "uid"
-            pass    # mz and rt: from the feature of the reference run, intensity = 0
+            mz, intensity = mz, 0
 
         mzArray.append(mz)
         intensityArray.append(intensity)
@@ -97,34 +97,13 @@ def findIsotopologue(mzxmlFile, infoDf, isRef, params):
         res["intensity"].append(intensityArray)
         res["ms1"].append(ms1Array)
         res["rt"].append(rtArray)
-        res["pct"].append(intensityArray / sum(intensityArray) * 100)
+        if sum(intensityArray) > 0:
+            res["pct"].append(intensityArray / sum(intensityArray) * 100)
+        else:
+            res["pct"].append(intensityArray)
 
     res = pd.DataFrame.from_dict(res)
     return res
-
-
-"""
-# This is an old version of "correctNaturalAbundance" function
-def correctNaturalAbundance(infoDf, isoDf):
-    # Input arguments
-    # infoDf = a pandas dataframe containing the information of isotopologues, e.g., theoretical isotopic peak m/z and intensitry
-    # isoDf = a pandas dataframe containing the identified isotopologues of given metabolites
-
-    # Quantification of isotopologues
-    intensityArray, pctArray = [], []
-    cm = correctionMatrix(infoDf)   # Correction matrix derived from the theoretical information of isotopologues
-    for i in range(isoDf.shape[0]):
-        uid = isoDf.loc[i]["id"]
-        intensity = isoDf.loc[i]["intensity"]
-        correctedIntensity = np.dot(np.linalg.inv(cm[uid]), intensity)
-        correctedIntensity[correctedIntensity < 0] = 0
-        intensityArray.append(correctedIntensity)
-        pctArray.append(correctedIntensity / sum(correctedIntensity) * 100)
-    isoDf["correctedIntensity"] = intensityArray
-    isoDf["labelingPct"] = pctArray
-
-    return isoDf
-"""
 
 
 def correctNaturalAbundance(df):

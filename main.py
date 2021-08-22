@@ -22,7 +22,7 @@ def findPeak(spec, givenMz, tol):
 def findIsotopologue(mzxmlFile, infoDf, isRef, params):
     # Summarize the information of metabolites
     dictM0 = {}
-    uids = np.array(infoDf[infoDf["isotopologues"] == "M0"]["idhmdb"])
+    uids = np.array(infoDf[infoDf["isotopologues"] == "M0"]["id"])
     mzs = np.array(infoDf[infoDf["isotopologues"] == "M0"]["feature_m/z"])
     rts = np.array(infoDf[infoDf["isotopologues"] == "M0"]["feature_RT"])
     for i in range(len(uids)):
@@ -39,17 +39,30 @@ def findIsotopologue(mzxmlFile, infoDf, isRef, params):
             ms1Scans.append(spec["num"])
             ms1RTs.append(spec["retentionTime"])
 
-    res = {"id":[], "ms1":[], "rt":[], "mz":[], "intensity":[], "pct": []}
+    # "res" dictionary will have the following format
+    # res["id"] = [uid[0], uid[1], ..., uid[n]]
+    # res["mz"] = [[M0 m/z of uid[0], M1 m/z of uid[0], ..., Mn m/z of uid[0]],
+    #              [M0 m/z of uid[1], M1 m/z of uid[1], ..., Mn m/z of uid[1]],
+    #              ....
+    #              [M0 m/z of uid[n], ....................., Mn m/z of uid[n]]]
+    # res["intensity"] = [...]
+    # ...
+    res = {"id": [], "ms1": [], "rt": [], "mz": [], "intensity": [], "pct": []}
+
     for uid in dictM0.keys():
         res["id"].append(uid)
+        # mzArray = m/z values of M0, M1, ..., and Mn of a given metabolite, "uid"
+        # intensityArray = intensities of M0, ..., Mn of "uid"
+        # ...
         mzArray, intensityArray, ms1Array, rtArray = [], [], [], []
 
         # Extract m/z and RT information of the "uid"
         mz = dictM0[uid]["mz"]
         rt = dictM0[uid]["rt"]
-        intensity = 0
 
-        # Look for the monoisotopic peak of "uid" (i.e., M0)
+        ######################################################
+        # Look for the monoisotopic peak of "uid" (i.e., M0) #
+        ######################################################
         scanNum = 0
         if isRef == 1:  # When the current run is a reference run
             idx = np.argmin(abs(ms1RTs - rt))
@@ -62,7 +75,7 @@ def findIsotopologue(mzxmlFile, infoDf, isRef, params):
                     mzs = reader[ms1Scans[idx]]["m/z array"]
                     ints = reader[ms1Scans[idx]]["intensity array"]
                     j = np.argmin(abs(mzs - mz))
-                    if mzs[j] >= (mz - mz * tol / 1e6) and mzs[j] <= (mz + mz * tol / 1e6) and ints[j] > maxIntensity:
+                    if (mz - mz * tol / 1e6) <= mzs[j] <= (mz + mz * tol / 1e6) and ints[j] > maxIntensity:
                         maxIntensity = ints[j]
                         scanNum = ms1Scans[idx]
 
@@ -79,8 +92,10 @@ def findIsotopologue(mzxmlFile, infoDf, isRef, params):
         ms1Array.append(int(scanNum))
         rtArray.append(rt)
 
-        # Identification of M1, M2, ..., Mn
-        nIsotopologues = sum(infoDf["idhmdb"] == uid)
+        #####################################
+        # Identification of M1, M2, ..., Mn #
+        #####################################
+        nIsotopologues = sum(infoDf["id"] == uid)
         for i in range(1, nIsotopologues):
             mz += delC  # Suppose that the tracer is 13C
             obsMz, obsIntensity = findPeak(spec, mz, tol)
@@ -114,9 +129,9 @@ def correctNaturalAbundance(df):
     intensityArray, pctArray = [], []
     cm = correctionMatrix(df)   # Correction matrix derived from the theoretical information of isotopologues
     cols = [s for s in df.columns if s.endswith("intensity") and s != "isotope_intensity"]
-    uids = df["idhmdb"].unique()
+    uids = df["id"].unique()
     for uid in uids:
-        idx = df["idhmdb"] == uid
+        idx = df["id"] == uid
         for col in cols:
             intensity = df.loc[idx][col]
             correctedIntensity = np.dot(np.linalg.inv(cm[uid]), intensity)
@@ -130,9 +145,9 @@ def correctNaturalAbundance(df):
 
 def correctionMatrix(df):
     res = {}
-    uids = df["idhmdb"].unique()
+    uids = df["id"].unique()
     for uid in uids:
-        subDf = df[df["idhmdb"] == uid]
+        subDf = df[df["id"] == uid]
         n = subDf.shape[0]
         cm = np.zeros((n, n))
         for i in range(n):
@@ -227,7 +242,7 @@ if __name__ == "__main__":
                 isRef = 0
             df = findIsotopologue(mzxmlFile, infoDf, isRef, params)
             isoDf[os.path.basename(mzxmlFile)] = df
-        res = res[["idhmdb", "formula", "name", "feature_ion", "feature_z", "isotopologues", "isotope_m/z", "isotope_intensity"]]
+        res = res[["id", "formula", "name", "feature_ion", "feature_z", "isotopologues", "isotope_m/z", "isotope_intensity"]]
         res = res.rename(columns={"feature_ion": "ion", "feature_z": "charge"})
 
         # Format the output dataframe

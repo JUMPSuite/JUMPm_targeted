@@ -112,7 +112,7 @@ def element_isoDistr_1toM(iso_mass_inten_dict, element, M, large_num_to_store, i
                 iso_mass_temp).reshape(1, -1)
             iso_inten_temp = np.array([element_intensity_temp[::-1, :].diagonal(i).sum() for i in
                                        range(-element_intensity_temp.shape[0] + 1, element_intensity_temp.shape[1])])
-            iso_mass_temp = np.array([np.asarray(element_mass_temp[::-1, :].diagonal(i))[0][0] for i in
+            iso_mass_temp = np.array([np.asarray(element_mass_temp[::-1, :].diagonal(i))[0] for i in
                                       range(-element_mass_temp.shape[0] + 1, element_mass_temp.shape[1])])
             iso_mass_temp = iso_mass_temp[iso_inten_temp > inten_threshold_trim2]
             iso_inten_temp = iso_inten_temp[iso_inten_temp > inten_threshold_trim2]
@@ -125,10 +125,11 @@ def element_isoDistr_1toM(iso_mass_inten_dict, element, M, large_num_to_store, i
 
 # Creating a dictionary with isotopic peak intensity and mass for the mono elemnts ( with cutoff )  
 def isotope_distribution_indElement(elemInfo_dict, iso_mass_inten_dict, inten_threshold_trim):
+    large_num_to_store= np.power(10, range(1,5)).tolist()
     for element in list(elemInfo_dict.keys()):
         iso_mass_inten_dict[element] = {'Mass': {1: list(elemInfo_dict[element].keys())},
                                         'Intensity': {1: list(elemInfo_dict[element].values())}}
-        iso_mass_inten_dict = element_isoDistr_1toM(iso_mass_inten_dict, element, 51, [], inten_threshold_trim)
+        iso_mass_inten_dict = element_isoDistr_1toM(iso_mass_inten_dict, element, 11, large_num_to_store, inten_threshold_trim)
     return iso_mass_inten_dict
 
 
@@ -212,7 +213,7 @@ def iso_distri_largeNum(element, count, iso_mass_inten_dict):
             iso_mass_temp).reshape(1, -1)
         iso_inten_temp = np.array([element_intensity_temp[::-1, :].diagonal(i).sum() for i in
                                    range(-element_intensity_temp.shape[0] + 1, element_intensity_temp.shape[1])])
-        iso_mass_temp = np.array([np.asarray(element_mass_temp[::-1, :].diagonal(i))[0][0] for i in
+        iso_mass_temp = np.array([np.asarray(element_mass_temp[::-1, :].diagonal(i))[0] for i in
                                   range(-element_mass_temp.shape[0] + 1, element_mass_temp.shape[1])])
     pep_iso_distr_df = pd.DataFrame(iso_inten_temp, columns=['isotope_inten'])
     pep_iso_distr_df['isotope_mass'] = iso_mass_temp
@@ -238,10 +239,10 @@ def iso_distri_combine_eleme(pep_iso_distr_df, next_elem_iso_inesity_distr, next
 
 def iso_distri_(iso_mass_inten_dict, chemical_com, Charge, isotope_cutoff, mass_tolerance, select_weighted_mass,
                 select_strong_intensity_peaks):
-    default_elementDict_size = {'C': 200, 'N': 100, 'H': 300, 'O': 100, 'S': 10, 'P': 2, 'F': 2, 'Na': 2, 'K': 2,
-                                'Si': 2, 'Cl': 2, 'Mg': 2, 'Fe': 2, 'Ca': 2, 'Zn': 2, 'Br': 2, 'Pb': 2, 'Cu': 2,
-                                'Al': 2, 'Cd': 2, 'I': 2, 'Ti': 2, 'B': 2, 'Se': 2, 'Ni': 2, 'Mn': 2, 'As': 2, 'Li': 2,
-                                'Mo': 2, 'Co': 2}
+    default_elementDict_size = {'C': 200, 'N': 100, 'H': 300, 'O': 100, 'S': 10, 'P': 10, 'F': 10, 'Na': 10, 'K': 10,
+                                'Si': 10, 'Cl': 10, 'Mg': 10, 'Fe': 10, 'Ca': 10, 'Zn': 10, 'Br': 10, 'Pb': 10, 'Cu': 10,
+                                'Al': 10, 'Cd': 10, 'I': 10, 'Ti': 10, 'B': 10, 'Se': 10, 'Ni': 10, 'Mn': 10, 'As': 10, 'Li': 10,
+                                'Mo': 10, 'Co': 10, 'x': 10, 'y': 10}
     if any(chemical_com[k] > default_elementDict_size[k] for k in set(chemical_com).intersection(
             default_elementDict_size)):  # if any(k > 200 for k in list(chemical_com.values())):
         for element, count in list(chemical_com.items())[:1]:
@@ -412,3 +413,4 @@ def getIsotopicDistributions(paramFile, inputFile):
     # iso_distr_all = pd.concat([inputData, iso_distr_all], axis=1)
     iso_distr_all["name"] = nameArray
     return iso_distr_all
+

@@ -7,6 +7,7 @@ Journal of The American Society for Mass Spectrometry
 """
 
 import re, os, sys, numpy as np, pandas as pd
+from pyteomics import mass
 from collections import namedtuple
 from datetime import datetime
 
@@ -17,13 +18,13 @@ ELECTRONMASS = 0.00054857990946
 PROTONMASS = 1.007276466812
 DUMMYMASS = -1000000
 isotope = namedtuple('isotope', ('mass', 'abundance'))
-masterIsotope = {'H': [isotope(1.00782503224, 0.999885), isotope(2.01410177811, 0.000115)],
-                 'C': [isotope(12.0000000, 0.9893), isotope(13.00335483521, 0.0107)],
-                 'N': [isotope(14.00307400446, 0.99636), isotope(15.0001088989, 0.00364)],
-                 'O': [isotope(15.99491461960, 0.99757), isotope(16.9991317566, 0.00038), isotope(17.9991596128, 0.00205)],
-                 'S': [isotope(31.9720711744, 0.9499), isotope(32.9714589099, 0.0075),
-                       isotope(33.96786701, 0.0425), isotope(35.96708070, 0.0001)],
-                 'P': [isotope(30.9737619986, 1)]}
+# masterIsotope = {'H': [isotope(1.00782503224, 0.999885), isotope(2.01410177811, 0.000115)],
+#                  'C': [isotope(12.0000000, 0.9893), isotope(13.00335483521, 0.0107)],
+#                  'N': [isotope(14.00307400446, 0.99636), isotope(15.0001088989, 0.00364)],
+#                  'O': [isotope(15.99491461960, 0.99757), isotope(16.9991317566, 0.00038), isotope(17.9991596128, 0.00205)],
+#                  'S': [isotope(31.9720711744, 0.9499), isotope(32.9714589099, 0.0075),
+#                        isotope(33.96786701, 0.0425), isotope(35.96708070, 0.0001)],
+#                  'P': [isotope(30.9737619986, 1)]}
 
 
 #############
@@ -76,14 +77,14 @@ def prune(f, limit):
 
 
 # Calculate isotopic peaks
-def calculate(fm, charge, limit):
+def calculate(comp, masterIsotope, charge, limit):
     # Initialization
     res = [isotope(0, 1)]
 
     # Calculation of isotopic peaks
-    for i in fm:    # For each element in formula, fm
+    for i in comp:    # For each element in formula, fm
         sal = [masterIsotope[i]]  # Deepcopy?
-        n = int(fm[i])
+        n = int(comp[i])
         j = 0
         # This while loop grows the superatom
         while n > 0:
@@ -130,36 +131,48 @@ def getParams(paramFile):
     return parameters
 
 
-def applyParams(formula, params):
-    # Convert the string type of chemical formula to a dictionary
-    dictFormula = {k: int(v) if v else 1 for k, v in re.findall(r"([A-Z][a-z]?)(\d+)?", formula)}
+def getMasterIsotope(comp):
+    res = {}
+    for elem in comp.keys():
+        res[elem] = []
+        nist = mass.nist_mass[elem]
+        for k, v in nist.items():
+            if k > 0 and v[1] > 0:
+                res[elem].append(isotope(v[0], v[1]))
+
+    return res
+
+
+def getTemplates(formula, params):
+    comp = mass.Composition(formula)    # A dictionary of the formula
+    masterIsotope = getMasterIsotope(comp)  # Isotopes of the elements in 'comp'
 
     # Update the masterIsotope and formula dictionaries by user-defined parameters
     if 'Tracer_1' in params:
         if params['Tracer_1'] == '13C':
-            dictFormula["X"] = 0
-            masterIsotope.update({'X': [isotope(12, 1 - float(params['Tracer_1_purity'])),
+            comp["XX"] = 0
+            masterIsotope.update({'XX': [isotope(12, 1 - float(params['Tracer_1_purity'])),
                                         isotope(13.00335483521, float(params['Tracer_1_purity']))]})
         elif params['Tracer_1'] == '15N':
-            dictFormula["Y"] = 0
-            masterIsotope.update({'Y': [isotope(14.00307400446, 1 - float(params['Tracer_1_purity'])),
+            comp["YY"] = 0
+            masterIsotope.update({'YY': [isotope(14.00307400446, 1 - float(params['Tracer_1_purity'])),
                                         isotope(15.0001088989, float(params['Tracer_1_purity']))]})
         else:
             sys.exit("\n Information for parameter \"Tracer_1\" is not properly defined\n ")
 
     if 'Tracer_2' in params:
         if params['Tracer_1'] == '13C':
-            dictFormula["X"] = 0
-            masterIsotope.update({'X': [isotope(12, 1 - float(params['Tracer_1_purity'])),
+            comp["XX"] = 0
+            masterIsotope.update({'XX': [isotope(12, 1 - float(params['Tracer_1_purity'])),
                                         isotope(13.00335483521, float(params['Tracer_1_purity']))]})
         elif params['Tracer_1'] == '15N':
-            dictFormula["Y"] = 0
-            masterIsotope.update({'Y': [isotope(14.00307400446, 1 - float(params['Tracer_1_purity'])),
+            comp["YY"] = 0
+            masterIsotope.update({'YY': [isotope(14.00307400446, 1 - float(params['Tracer_1_purity'])),
                                         isotope(15.0001088989, float(params['Tracer_1_purity']))]})
         else:
             sys.exit("\n Information for parameter \"Tracer_2\" is not properly defined\n ")
 
-    return dictFormula
+    return comp, masterIsotope
 
 
 def truncate(array):
@@ -190,12 +203,11 @@ def truncate(array):
 
 
 def getIsotopologues(formula, charge, params):
-    # Update "masterIsotope" and generate "dictFormula" according to the user-defined parameters
-    dictFormula = applyParams(formula, params)
+    comp, masterIsotope = getTemplates(formula, params)
     limit = 1e-10   # This limit should be included in parameters
 
-    if "C" in dictFormula:
-        nIsotopologues = dictFormula["C"] + 1
+    if "C" in comp:
+        nIsotopologues = comp["C"] + 1
     else:
         nIsotopologues = 1
 
@@ -203,13 +215,13 @@ def getIsotopologues(formula, charge, params):
     for i in range(nIsotopologues):
         if i > 0:
             if params["Tracer_1"] == "13C":
-                dictFormula["C"] -= 1
-                dictFormula["X"] += 1
+                comp["C"] -= 1
+                comp["XX"] += 1
             elif params["Tracer_1"] == "15N":
-                dictFormula["N"] -= 1
-                dictFormula["Y"] += 1
+                comp["N"] -= 1
+                comp["YY"] += 1
 
-        isotopologue = calculate(dictFormula, charge, limit)
+        isotopologue = calculate(comp, masterIsotope, charge, limit)
         isotopologues.append(isotopologue)
 
     # Truncate small isotopic peaks, convert abundances to a relative scale and change to a dataframe

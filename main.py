@@ -154,7 +154,17 @@ def correctionMatrix(df):
             # Assume that "intensity" is already sorted and organized from M0 to Mn
             intensity = subDf.iloc[i]["isotope_intensity"].split(";")
             cm[i, :] = [float(val) / 100 for val in intensity]
-        res[uid] = cm
+
+        # Note that the correction matrix (i.e., natural abundance matrix) should be arranged so that cm[i, j] represents
+        # the fraction of the distribution of the j-th labeled species (i.e., isotopologues) corresponding to the i-th measured value (i.e., m/z)
+        #   Each row = m/z
+        #   Each column = isotopologue
+        #   The fraction should be scaled to be summed to 1 for each column
+        # References
+        # Winden, W. A. et al. Biotechnol Bioeng. 2002; 80: 477-9
+        # Millard, P. et al. Bioinformatics. 2012; 28: 1294–1296
+        # Heinrich, P. et al. Scientific Reports. 2018; 8: 17910
+        res[uid] = cm.T
 
     return res
 

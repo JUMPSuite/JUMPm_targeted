@@ -137,7 +137,10 @@ def correctNaturalAbundance(df):
             correctedIntensity = np.dot(np.linalg.inv(cm[uid]), intensity)
             correctedIntensity[correctedIntensity < 0] = 0
             df.loc[idx, col] = correctedIntensity
-            correctedPct = correctedIntensity / sum(correctedIntensity) * 100
+            if sum(correctedIntensity) == 0:
+                correctedPct = np.zeros(len(correctedIntensity))
+            else:
+                correctedPct = correctedIntensity / sum(correctedIntensity) * 100
             df.loc[idx, col.replace("intensity", "labelingPct")] = correctedPct
 
     return df

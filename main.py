@@ -137,7 +137,13 @@ def correctionMatrix(df):
             # Assume that "intensity" is already sorted and organized from M0 to Mn
             intensity = subDf.iloc[i]["isotope_intensity"].split(";")
             cm[i, :] = [float(val) / 100 for val in intensity]
-        res[uid] = cm
+
+        # Note that the correction matrix (i.e., natural abundance matrix) should be arranged so that cm[i, j] represents
+        # the fraction of the distribution of the j-th labeled species (i.e., isotopologues) corresponding to the i-th measured value (i.e., m/z)
+        # Each row = m/z
+        # Each column = isotopologue
+        # The fraction should be scaled to be summed to 1 for each column
+        res[uid] = cm.T
 
     return res
 
@@ -214,19 +220,19 @@ if __name__ == "__main__":
     # 2.
     # 3. List of mzXML files
 
-    # paramFile = sys.argv[1]
-    paramFile = "jumpm_targeted.params"
+    paramFile = sys.argv[1]
+    # paramFile = "jumpm_targeted.params"
     params = getParams(paramFile)
 
     # Mode 1, identification and quantification of isotopologues (of given target metabolites)
     if params["mode"] == "1":
         print("  Isotopologues of given target metabolites are identified and quantified")
-        # mzxmlFiles = sys.argv[2:]
-        mzxmlFiles = [
-            r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\6_nolable.mzXML",
-            r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\7_tracer.mzXML",
-            r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\8_tracer.mzXML",
-            r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\9_tracer.mzXML"]
+        mzxmlFiles = sys.argv[2:]
+        # mzxmlFiles = [
+        #     r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\6_nolable.mzXML",
+        #     r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\7_tracer.mzXML",
+        #     r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\8_tracer.mzXML",
+        #     r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Datasets\13Ctracer_rawdata\9_tracer.mzXML"]
 
         if len(mzxmlFiles) == 0:
             sys.exit("  You should specify mzXML files\n  e.g., jump -mpython -target jumpm_targeted.params test1.mzXML test2.mzXML ...")

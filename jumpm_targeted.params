@@ -9,7 +9,7 @@ quan_result = tracer_result.txt
 # Parameters for runs/samples #
 ###############################
 ref_run = 6_nolable.mzXML            # Name of the reference run (e.g., unlabeled run)
-ref_feature_information = 6_nolable_jumpm.csv 
+ref_feature_information = metabolite_template.csv 
 
 ########################################################
 # Parameters for the isotopic distribution calculation #
